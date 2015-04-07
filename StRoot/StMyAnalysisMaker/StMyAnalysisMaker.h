@@ -49,6 +49,7 @@ class StMyAnalysisMaker : public StMaker {
     //int Reco(vector<StPhysicalHelixD>& v_kaon, vector<StPhysicalHelixD>& v_pion,vector<StPhysicalHelixD>& v_soft_pion,vector<vector<double> >& c_kaon,vector<vector<double> >& c_pion,vector<vector<double> >& c_soft_pion, StThreeVectorF& pVtx,int opt,vector<int>& daughter);
     int Reco(StPhysicalHelixD v_kaon[10000],StPhysicalHelixD v_pion[10000],StPhysicalHelixD v_soft_pion[10000],double c_kaon[10000][10],double c_pion[10000][10],double c_soft_pion[10000][10],StThreeVectorF& pVtx,int opt,vector<int>& daughter,int count_k,int count_p);
     int primaryVertexRefit(StThreeVectorF *, vector<int>& daughter);
+    void clear();
     void Fit();
     TH1F *VtxM() {return fVtxM;}
     void SetZwindow(Double_t z = 2) {fzWindow = z;}
@@ -105,6 +106,8 @@ class StMyAnalysisMaker : public StMaker {
     TH1D*  mDmasstriggercut_like;
     TH1D*  mDsmasstriggercut_unlike;
     TH1D*  mDsmasstriggercut_like;
+    StDcaGeometry *dca;
+    StDcaGeometry *dcaG;
 //
 //	//StKFVertexMaker private
 	TObjArray *fParticles; // KF particles
@@ -125,6 +128,7 @@ class StMyAnalysisMaker : public StMaker {
 	Bool_t mBeamLine;
 	StPrimaryVertexOrder     mVertexOrderMethod; // will default to 0 i.e. orderByNumberOfDaughters
 	TCanvas                 *fc1;
+	StPrimaryVertex *primV;
 //
 //                   
     ClassDef(StMyAnalysisMaker, 1)

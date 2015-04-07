@@ -24,7 +24,7 @@
 #include "Math/GSLMinimizer1D.h"
 #include "TCanvas.h"
 #include "TH1K.h"
-#include "TH2D.h"
+#include "TH2F.h"
 #include "StiMaker/StKFVerticesCollection.h"
 #include "StPhysicalHelixD.hh"
 class StPrimaryVertex; 
@@ -109,7 +109,7 @@ class StPicoD0AnaMaker : public StMaker
     // Remember that ntuples size can be really big, use histograms where appropriate
 //	//StKFVertexMaker private
         TNtuple *mRefittuple;
-        TH2D *timemult;
+        TH2F *timemult;
 	TObjArray *fParticles; // KF particles
 	Int_t fNzBins;
 	Int_t fNPasses;
@@ -128,6 +128,8 @@ class StPicoD0AnaMaker : public StMaker
 	Bool_t mBeamLine;
 	//StPrimaryVertexOrder     mVertexOrderMethod; // will default to 0 i.e. orderByNumberOfDaughters
 	TCanvas                 *fc1;
+    StDcaGeometry *dca;
+	StPrimaryVertex *primV;
 //
 
     ClassDef(StPicoD0AnaMaker, 1)

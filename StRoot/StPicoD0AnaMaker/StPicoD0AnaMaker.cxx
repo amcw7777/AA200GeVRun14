@@ -102,15 +102,18 @@ Int_t StPicoD0AnaMaker::Init()
    mChain->SetBranchAddress("dEvent", &mPicoD0Event);
 
    mOutputFile = new TFile(mOutFileName.Data(), "RECREATE");
-   mRefittuple = new TNtuple("mRefittuple","mRefittuple","refitx:refity:refitz:prmx:prmy:prmz:runId:eventId:ranking");
-   //timemult = new TH2D("timemult","",100,0,500,100,0,5);
+   mRefittuple = new TNtuple("mRefittuple","mRefittuple","refitx:refity:refitz:prmx:prmy:prmz:runId:eventId:ranking:time:mult");
+   timemult = new TH2F("timemult","",100,0,500,100,0,5);
    mOutputFile->cd();
 
    if (!mHFCuts)
     mHFCuts = new StHFCuts;   
 
    // -------------- USER VARIABLES -------------------------
-     fNzBins = 2500;
+  //dcaG = new StDcaGeometry();
+  dca = new StDcaGeometry();
+  primV  = new StPrimaryVertex;
+  fNzBins = 2500;
   fNPasses = 2;
   fSpectrum = 0;
   fzWindow = 2;
@@ -163,7 +166,7 @@ Int_t StPicoD0AnaMaker::Finish()
    mOutputFile->cd();
    // save user variables here
    mRefittuple->Write();
-   //timemult-Write();
+  // timemult-Write();
    mOutputFile->Close();
 /////////Vertex Fitting
   SafeDelete(fVtxM);
@@ -176,6 +179,8 @@ Int_t StPicoD0AnaMaker::Finish()
   SafeDelete(fminBrent);
   delete [] fVerticesPass; fVerticesPass = 0;
   SafeDelete(fParticles);
+  SafeDelete(primV);
+  SafeDelete(dca);
 	
    return kStOK;
 }
@@ -183,7 +188,7 @@ Int_t StPicoD0AnaMaker::Finish()
 Int_t StPicoD0AnaMaker::Make()
 {
    readNextEvent();
-   time_t t_1,t_2,t_3,t_4,t_5;
+   time_t t_1,t_2;
    if (!mPicoDstMaker)
    {
       LOG_WARN << " StPicoD0AnaMaker - No PicoDstMaker! Skip! " << endm;
@@ -209,7 +214,7 @@ Int_t StPicoD0AnaMaker::Make()
 
    // -------------- USER ANALYSIS -------------------------
    TClonesArray const * aKaonPion = mPicoD0Event->kaonPionArray();
-   float refittuple_fill[10]; 
+   float refittuple_fill[20]; 
    
    StThreeVectorF pVtx(-999.,-999.,-999.);
    StThreeVectorF testVertex(-999.,-999.,-999.);
@@ -219,13 +224,10 @@ Int_t StPicoD0AnaMaker::Make()
      LOG_WARN << " Not Min Bias! Skip! " << endm;
      return kStWarn;
    }
-   double mult = event->refMult();
-   cout<<"TIME for event with mult = "<<mult<<endl;
+   float mult = event->refMult();
    if(event) {
      pVtx = event->primaryVertex();
    }
-   t_2 = clock();
-//   cout<<"TIME to get event is "<<0.000001*difftime(t_2,t_1)<<endl;
    testVertex = pVtx;
    vector<int> daughter;
    daughter.clear();
@@ -241,15 +243,9 @@ Int_t StPicoD0AnaMaker::Make()
       daughter.push_back(kp->pionIdx());
 
    }
-   t_3 = clock();
-//   cout<<"TIME to loop D0 is "<<0.000001*difftime(t_3,t_2)<<endl;
    double mranking=0;
    mranking = primaryVertexRefit(&testVertex,daughter);
    cout<<"TIME for event with mult = "<<mult<<endl;
-   t_4 = clock();
-//   cout<<"TIME to refit is "<<0.000001*difftime(t_4,t_3)<<endl;
-   double dtime = 0.000001*difftime(t_4,t_3);
-   //timemult->Fill(mult,dtime);
    refittuple_fill[0] = testVertex.x(); 
    refittuple_fill[1] = testVertex.y(); 
    refittuple_fill[2] = testVertex.z(); 
@@ -259,9 +255,13 @@ Int_t StPicoD0AnaMaker::Make()
    refittuple_fill[6] = (double)mPicoD0Event->runId(); 
    refittuple_fill[7] = (double)mPicoD0Event->eventId(); 
    refittuple_fill[8] = mranking; 
+   t_2 = clock();
+   float dtime = 0.000001*difftime(t_2,t_1);
+   refittuple_fill[9] = dtime; 
+   refittuple_fill[10] = mult; 
    mRefittuple->Fill(refittuple_fill);
-   t_5 = clock();
-//   cout<<"TIME to fill tuple is "<<0.000001*difftime(t_5,t_4)<<endl;
+   cout<<"TIME to run is "<<dtime<<endl;
+   timemult->Fill(mult,dtime);
 
    return kStOK;
 }
@@ -288,8 +288,6 @@ bool StPicoD0AnaMaker::isGoodPair(StKaonPion const* const kp) const
 /*
 */
 double StPicoD0AnaMaker::primaryVertexRefit(StThreeVectorF *mRefitVertex, vector<int>& daughter) {
-  time_t tr_1,tr_2,tr_3,tr_4,tr_5;
-  tr_1 = clock();
 /*
   //StKFVertexMaker variables
   fNzBins = 2500;
@@ -337,13 +335,11 @@ double StPicoD0AnaMaker::primaryVertexRefit(StThreeVectorF *mRefitVertex, vector
   KFParticle::SetField(bField);
   Int_t NGoodGlobals = 0;
   int nTracks = picoDst->numberOfTracks();
-  tr_2 = clock();
-//  cout<<"TIME to load is "<<0.000001*difftime(tr_2,tr_1)<<endl;
   for (int i=0; i < nTracks; i++) {
      StPicoTrack *gTrack = (StPicoTrack*)picoDst->track(i);
      if (! gTrack) continue;
 //     const StDcaGeometry* dca = gTrack->dcaGeometry();
-     StDcaGeometry *dca = new StDcaGeometry();
+//     StDcaGeometry *dca = new StDcaGeometry();
      dca->set(gTrack->params(),gTrack->errMatrix());
      if (! dca) continue;
 //     if (gTrack->flag()     <   0) continue;     // Bad fit
@@ -367,11 +363,7 @@ double StPicoD0AnaMaker::primaryVertexRefit(StThreeVectorF *mRefitVertex, vector
      NGoodGlobals++;
   }
   if (NGoodGlobals < 2 ) return false;
-  tr_3 = clock();
-//  cout<<"TIME to loop tracks is "<<0.000001*difftime(tr_3,tr_2)<<endl;
   Fit();
-  tr_4 = clock();
-//  cout<<"TIME to fit is "<<0.000001*difftime(tr_4,tr_3)<<endl;
   if (! Vertices()) return false;
   //
   //  In case there are no tracks left we better quit
@@ -384,9 +376,9 @@ double StPicoD0AnaMaker::primaryVertexRefit(StThreeVectorF *mRefitVertex, vector
       const StKFVertex *V = Vertices()->Vertex(l);
       if (! V) continue;
       //if (Debug() > 2) 
-      V->PrintW();
+//      V->PrintW();
       // Store vertex
-      StPrimaryVertex *primV  = new StPrimaryVertex;
+//      StPrimaryVertex *primV  = new StPrimaryVertex;
       StThreeVectorF XVertex(&V->Vertex().X());
       primV->setPosition(XVertex);
       primV->setChiSquared(V->Vertex().Chi2()/V->Vertex().GetNDF());  
@@ -462,8 +454,6 @@ double StPicoD0AnaMaker::primaryVertexRefit(StThreeVectorF *mRefitVertex, vector
 		
    
   } 
-  tr_5 = clock();
-//  cout<<"TIME to rank is "<<0.000001*difftime(tr_5,tr_4)<<endl;
   Clear();
 
   return mrank;
@@ -522,8 +512,6 @@ KFParticle *StPicoD0AnaMaker::AddTrackAt(const StDcaGeometry *dca, Int_t kg) {
 }
 //________________________________________________________________________________
 void StPicoD0AnaMaker::Fit() {
-  time_t tf_1,tf_2,tf_3,tf_4,tf_5;
-  tf_1 = clock();
   if (Debug() != 2)  StKFVertex::SetDebug(Debug());
   fcVertices = 0;
   for (Int_t i = 0; i < fNPasses+1; i++) {
@@ -637,8 +625,6 @@ void StPicoD0AnaMaker::Fit() {
   fVerticesPass[pass] = new StKFVerticesCollection();
   fcVertices = fVerticesPass[pass];
   StAnneling::SetTemperature(Temperature);
-  tf_2 = clock();
-  cout<<"TIME of fpass loop is "<<0.000001*difftime(tf_2,tf_1)<<endl;
   for (Int_t k = 1; k < NGoodGlobals; k++) {
     KFParticle *particleK = (KFParticle *) Particles()[k];
     if (! particleK) continue;
@@ -674,8 +660,6 @@ void StPicoD0AnaMaker::Fit() {
     }
     fcVertices->AddVertex(vtx);
   }
-  tf_3 = clock();
-  cout<<"TIME of global loop is "<<0.000001*difftime(tf_3,tf_2)<<endl;
   if (StKFVertex::Debug() > 1) {
     LOG_INFO << "Candidate for secondary vertices: " << fcVertices->NoVertices() << endm;
   }
@@ -702,8 +686,6 @@ void StPicoD0AnaMaker::Fit() {
   fcVertices->UniqueTracks2VertexAssociation(); // Make track associated with only vertex
   fcVertices->Fit(29,Canvas(),fVtx);
   if (Canvas()) Canvas()->Update();
-  tf_4 = clock();
-  //cout<<"TIME of end is "<<0.000001*difftime(tf_4,tf_3)<<endl;
 }
 //________________________________________________________________________________
 Double_t StPicoD0AnaMaker::AnnelingFcn(Double_t TInv) {

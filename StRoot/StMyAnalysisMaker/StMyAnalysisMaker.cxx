@@ -72,6 +72,53 @@ StMyAnalysisMaker::~StMyAnalysisMaker()
 //----------------------------------------------------------------------------- 
 Int_t StMyAnalysisMaker::Init() {
   DeclareHistograms();
+
+  dcaG = new StDcaGeometry();
+  dca = new StDcaGeometry();
+  //StKFVertexMaker variables
+  fNzBins = 2500;
+  fNPasses = 2;
+  fSpectrum = 0;
+  fzWindow = 2;
+  fVtxM = 0;
+  fVerticesPass = 0;
+  fTempLog = 2;
+  fminBrent = 0;
+  func = 0;
+  mBeamLine = kFALSE;
+  fc1 = 0;
+
+  //StKFVertexMaker constr.
+  Int_t npeaks = 100;
+  Double_t zmin = -250;
+  Double_t zmax = 250;
+  //  StKFVertex::_debug = 1;
+  for (Int_t pass = 0; pass < fNPasses; pass++) {
+      fVtxs[pass] = new TH1F(Form("Vtx%1i",pass),Form("z-dca distribution for pass = %1i",pass),fNzBins,zmin,zmax);
+      fVtxs[pass]->SetDirectory(0);
+      if (pass)  fVtxs[pass]->SetLineColor(5);
+      fVtxs[pass]->SetDefaultSumw2();
+      fVtxs[pass]->SetStats(0);
+      fVtxKs[pass] = new TH1K(Form("VtxK%1i",pass),Form("z-dca distribution for pass = %1i",pass),fNzBins,zmin,zmax);
+      fVtxKs[pass]->SetDirectory(0);
+      fVtxKs[pass]->SetStats(0);
+      fVtxKs[pass]->SetLineColor(2);
+  }
+  fVtxM = new TH1F("VtxM","MuDst reconstructed multiplicities versus Z",fNzBins,zmin,zmax);
+  fVtxM->SetDirectory(0);
+  fSpectrum = new TSpectrum(2*npeaks);
+//  cout<<"checkpoint1"<<endl;
+  func = new ROOT::Math::Functor1D(&StMyAnalysisMaker::AnnelingFcn);
+  //func = new ROOT::Math::Functor1D(&StKFVertexMaker::AnnelingFcn);
+  fminBrent = new ROOT::Math::GSLMinimizer1D();
+  fVerticesPass = new StKFVerticesCollection *[fNPasses+1];
+  memset (fVerticesPass, 0, (fNPasses+1)*sizeof(StKFVerticesCollection *));
+  fParticles = new TObjArray();
+  fParticles->SetOwner(kTRUE);
+  mVertexOrderMethod = orderByRanking; // change ordering by ranking
+
+  primV  = new StPrimaryVertex;
+
   return kStOK;
 }
 
@@ -83,6 +130,20 @@ Int_t StMyAnalysisMaker::Finish() {
     WriteHistograms();
     fout->Close();
   }
+  SafeDelete(fVtxM);
+  for (Int_t pass = 0; pass < fNPasses; pass++) {
+    SafeDelete(fVtxs[pass]);
+    SafeDelete(fVtxKs[pass]);
+  }
+  SafeDelete(fSpectrum);
+  SafeDelete(func);
+  SafeDelete(fminBrent);
+  delete [] fVerticesPass; fVerticesPass = 0;
+  SafeDelete(fParticles);
+  SafeDelete(primV);
+  SafeDelete(dca);
+  SafeDelete(dcaG);
+	
   return kStOK;
 }
 
@@ -221,7 +282,7 @@ Int_t StMyAnalysisMaker::Make() {
   {
     StPicoTrack *t = (StPicoTrack*)mPicoDst->track(i);
     if(!t) continue;
-    StDcaGeometry *dcaG = new StDcaGeometry();
+//    StDcaGeometry *dcaG = new StDcaGeometry();
     dcaG->set(t->params(),t->errMatrix());
     StPhysicalHelixD helix = dcaG->helix();
     double dca = helix.geometricSignedDistance(pVtx);
@@ -366,7 +427,7 @@ Int_t StMyAnalysisMaker::Make() {
 //    mTracktuple->Fill(track_fill);
     
 
-    delete dcaG;
+//    delete dcaG;
   }
   primaryVertexRefit(&testVertex,daughter);
   event_fill[4] = testVertex.x();
@@ -378,7 +439,7 @@ Int_t StMyAnalysisMaker::Make() {
   event_fill[11] = testVertex.x();
   event_fill[12] = testVertex.y();
   event_fill[13] = testVertex.z();
-  mEventtuple->Fill(event_fill);
+//  mEventtuple->Fill(event_fill);
   option = 2;
   Reco(v_k,v_p,v_soft_p,c_k,c_p,c_soft_p,testVertex,option,daughter,count_k,count_p);
 //  cout<<"checkpoint4 = "<<testVertex<<endl;
@@ -396,7 +457,7 @@ Int_t StMyAnalysisMaker::Make() {
 /*
 */
 int StMyAnalysisMaker::primaryVertexRefit(StThreeVectorF *mRefitVertex, vector<int>& daughter) {
-
+/*
   //StKFVertexMaker variables
   fNzBins = 2500;
   fNPasses = 2;
@@ -432,13 +493,13 @@ int StMyAnalysisMaker::primaryVertexRefit(StThreeVectorF *mRefitVertex, vector<i
 //  cout<<"checkpoint1"<<endl;
   func = new ROOT::Math::Functor1D(&StMyAnalysisMaker::AnnelingFcn);
   //func = new ROOT::Math::Functor1D(&StKFVertexMaker::AnnelingFcn);
-//  cout<<"checkpoint2"<<endl;
   fminBrent = new ROOT::Math::GSLMinimizer1D();
   fVerticesPass = new StKFVerticesCollection *[fNPasses+1];
   memset (fVerticesPass, 0, (fNPasses+1)*sizeof(StKFVerticesCollection *));
   fParticles = new TObjArray();
   fParticles->SetOwner(kTRUE);
   mVertexOrderMethod = orderByRanking; // change ordering by ranking
+*/
 
   //StKFVertexMaker Make part
   StPicoEvent *event = (StPicoEvent *)mPicoDst->event();
@@ -492,7 +553,7 @@ int StMyAnalysisMaker::primaryVertexRefit(StThreeVectorF *mRefitVertex, vector<i
      StPicoTrack *gTrack = (StPicoTrack*)mPicoDst->track(i);
      if (! gTrack) continue;
 //     const StDcaGeometry* dca = gTrack->dcaGeometry();
-     StDcaGeometry *dca = new StDcaGeometry();
+//     StDcaGeometry *dca = new StDcaGeometry();
      dca->set(gTrack->params(),gTrack->errMatrix());
      if (! dca) continue;
 //     if (gTrack->flag()     <   0) continue;     // Bad fit
@@ -534,10 +595,11 @@ int StMyAnalysisMaker::primaryVertexRefit(StThreeVectorF *mRefitVertex, vector<i
       const StKFVertex *V = Vertices()->Vertex(l);
       if (! V) continue;
       //if (Debug() > 2) 
-      V->PrintW();
+      //V->PrintW();
       // Store vertex
-      StPrimaryVertex *primV  = new StPrimaryVertex;
+//      StPrimaryVertex *primV  = new StPrimaryVertex;
       StThreeVectorF XVertex(&V->Vertex().X());
+      //primV->Reset();
       primV->setPosition(XVertex);
       primV->setChiSquared(V->Vertex().Chi2()/V->Vertex().GetNDF());  
       primV->setProbChiSquared(TMath::Prob(V->Vertex().GetChi2(),V->Vertex().GetNDF()));
@@ -609,21 +671,9 @@ int StMyAnalysisMaker::primaryVertexRefit(StThreeVectorF *mRefitVertex, vector<i
         mrank = primV->ranking();
         *mRefitVertex = primV->position();
       }
-		
-////////////////Free memory/////////////////////
-   
   } 
-  SafeDelete(fVtxM);
-  for (Int_t pass = 0; pass < fNPasses; pass++) {
-    SafeDelete(fVtxs[pass]);
-    SafeDelete(fVtxKs[pass]);
-  }
-  SafeDelete(fSpectrum);
-  SafeDelete(func);
-  SafeDelete(fminBrent);
-  delete [] fVerticesPass; fVerticesPass = 0;
-  SafeDelete(fParticles);
-	
+////////////////Free memory/////////////////////
+  clear();
   return 1;
 
 }
@@ -1046,5 +1096,18 @@ int StMyAnalysisMaker::Reco(StPhysicalHelixD v_kaon[10000],StPhysicalHelixD v_pi
     }
   }
   return 1;
+}
+
+void StMyAnalysisMaker::clear() {
+  for (Int_t pass = 0; pass < fNPasses; pass++) {
+    fVtxKs[pass]->Reset();
+    fVtxKs[pass]->SetMaximum();
+    fVtxs[pass]->Reset();
+    fVtxs[pass]->SetMaximum();
+  }
+  fVtx = fVtxs[0]; // << switch between types    Vtx = fVtxKs[0];
+  fVtxM->Reset();
+  fcVertices = 0;
+  fParticles->Clear("C");
 }
 
