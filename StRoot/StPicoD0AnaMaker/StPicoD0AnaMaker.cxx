@@ -104,13 +104,22 @@ Int_t StPicoD0AnaMaker::Init()
    mOutputFile = new TFile(mOutFileName.Data(), "RECREATE");
    mRefittuple = new TNtuple("mRefittuple","mRefittuple","refitx:refity:refitz:prmx:prmy:prmz:runId:eventId:ranking:time:mult");
    timemult = new TH2F("timemult","",100,0,500,100,0,5);
+
+  mDmass_unlike = new TH1D("mDmass_unlike","",2500,0.5,3);
+  mDmass_like = new TH1D("mDmass_like","",2500,0.5,3);
+  mDmasscut_unlike = new TH1D("mDmasscut_unlike","",2500,0.5,3);
+  mDmasscut_like = new TH1D("mDmasscut_like","",2500,0.5,3);
+  mDmasstest_unlike = new TH1D("mDmasstest_unlike","",2500,0.5,3);
+  mDmasstest_like = new TH1D("mDmasstest_like","",2500,0.5,3);
+  mMult = new TH1D("mMult","",500,0,500);
+
    mOutputFile->cd();
 
    if (!mHFCuts)
     mHFCuts = new StHFCuts;   
 
    // -------------- USER VARIABLES -------------------------
-  //dcaG = new StDcaGeometry();
+  dcaG = new StDcaGeometry();
   dca = new StDcaGeometry();
   primV  = new StPrimaryVertex;
   fNzBins = 2500;
@@ -165,8 +174,21 @@ Int_t StPicoD0AnaMaker::Finish()
    LOG_INFO << " StPicoD0AnaMaker - writing data and closing output file " <<endm;
    mOutputFile->cd();
    // save user variables here
-   mRefittuple->Write();
+   //mRefittuple->Write();
   // timemult-Write();
+
+  mMult->Write();
+
+  mDmass_unlike->Write();
+  mDmass_like->Write();
+  mDmasscut_unlike->Write();
+  mDmasscut_like->Write();
+  mDmasstest_unlike->Write();
+  mDmasstest_like->Write();
+
+ 
+
+ 
    mOutputFile->Close();
 /////////Vertex Fitting
   SafeDelete(fVtxM);
@@ -214,6 +236,17 @@ Int_t StPicoD0AnaMaker::Make()
 
    // -------------- USER ANALYSIS -------------------------
    TClonesArray const * aKaonPion = mPicoD0Event->kaonPionArray();
+  StPhysicalHelixD v_k[10000];
+  StPhysicalHelixD v_p[10000];
+  StPhysicalHelixD v_soft_p[10000];
+  double c_k[10000][10];
+  double c_p[10000][10];
+  double c_soft_p[10000][10];
+  int count_k = 0;
+  int count_p = 0;
+  int count_soft_p = 0;
+  
+
    float refittuple_fill[20]; 
    
    StThreeVectorF pVtx(-999.,-999.,-999.);
@@ -225,6 +258,12 @@ Int_t StPicoD0AnaMaker::Make()
      return kStWarn;
    }
    float mult = event->refMult();
+   if(mult>100)
+   {
+     LOG_WARN << "Mult > 100! Skip! " << endm;
+     return kStWarn;
+   }
+   mMult->Fill(event->refMult());
    if(event) {
      pVtx = event->primaryVertex();
    }
@@ -237,35 +276,49 @@ Int_t StPicoD0AnaMaker::Make()
       StKaonPion const* kp = (StKaonPion*)aKaonPion->At(idx);
       if(!isGoodPair(kp)) continue;
 
-      //StPicoTrack const* kaon = picoDst->track(kp->kaonIdx());
-     // StPicoTrack const* pion = picoDst->track(kp->pionIdx());
+      StPicoTrack const* kaon = picoDst->track(kp->kaonIdx());
+      dcaG->set(kaon->params(),kaon->errMatrix());
+      StPhysicalHelixD helix = dcaG->helix();
+      double dca = helix.geometricSignedDistance(pVtx);
+      v_k[count_k] = helix;
+      c_k[count_k][0] = (double)kaon->charge();
+      c_k[count_k][1] = kaon->id();
+      c_k[count_k][2] = dca;
+      c_k[count_k][3] = 0;//track_fill[25];
+      c_k[count_k][4] = 0;//track_fill[26];
+      c_k[count_k][5] = event->isMinBias();
+      count_k++;
+
+      StPicoTrack const* pion = picoDst->track(kp->pionIdx());
+      dcaG->set(kaon->params(),kaon->errMatrix());
+      helix = dcaG->helix();
+      dca = helix.geometricSignedDistance(pVtx);
+      v_p[count_p] = helix;
+      c_p[count_p][0] = (double)pion->charge();
+      c_p[count_p][1] = pion->id();
+      c_p[count_p][2] = dca;
+      c_p[count_p][3] = 0;//track_fill[25];
+      c_p[count_p][4] = 0;//track_fill[26];
+      c_p[count_p][5] = event->refMult();
+
       daughter.push_back(kp->kaonIdx());
       daughter.push_back(kp->pionIdx());
 
    }
    double mranking=0;
+   vector<int> testdaughter;
+   testdaughter.clear();
+   mranking = primaryVertexRefit(&testVertex,testdaughter);
+   int option=1;
+   Reco(v_k,v_p,v_soft_p,c_k,c_p,c_soft_p,testVertex,option,daughter,count_k,count_p);
    mranking = primaryVertexRefit(&testVertex,daughter);
-   cout<<"TIME for event with mult = "<<mult<<endl;
-   refittuple_fill[0] = testVertex.x(); 
-   refittuple_fill[1] = testVertex.y(); 
-   refittuple_fill[2] = testVertex.z(); 
-   refittuple_fill[3] = pVtx.x(); 
-   refittuple_fill[4] = pVtx.y(); 
-   refittuple_fill[5] = pVtx.z(); 
-   refittuple_fill[6] = (double)mPicoD0Event->runId(); 
-   refittuple_fill[7] = (double)mPicoD0Event->eventId(); 
-   refittuple_fill[8] = mranking; 
-   t_2 = clock();
-   float dtime = 0.000001*difftime(t_2,t_1);
-   refittuple_fill[9] = dtime; 
-   refittuple_fill[10] = mult; 
-   mRefittuple->Fill(refittuple_fill);
-   cout<<"TIME to run is "<<dtime<<endl;
-   timemult->Fill(mult,dtime);
-
+   option=2;
+   Reco(v_k,v_p,v_soft_p,c_k,c_p,c_soft_p,testVertex,option,daughter,count_k,count_p);
+   mranking = primaryVertexRefit(&testVertex,daughter);
    return kStOK;
 }
 //-----------------------------------------------------------------------------
+
 bool StPicoD0AnaMaker::isGoodPair(StKaonPion const* const kp) const
 {
   if(!kp) return false;
@@ -280,6 +333,22 @@ bool StPicoD0AnaMaker::isGoodPair(StKaonPion const* const kp) const
     kp->decayLength()  > mHFCuts->cutSecondaryPairDecayLengthMin() && 
     kp->decayLength()  < mHFCuts->cutSecondaryPairDecayLengthMax() &&
     kp->dcaDaughters() < mHFCuts->cutSecondaryPairDcaDaughtersMax();
+
+  return (mHFCuts->isGoodTrack(kaon) && mHFCuts->isGoodTrack(pion) &&
+	  mHFCuts->isTPCKaon(kaon) && mHFCuts->isTPCPion(pion) && 
+	  pairCuts);
+}
+
+bool StPicoD0AnaMaker::isD0Pair(StKaonPion const* const kp) const
+{
+  if(!kp) return false;
+
+  StPicoTrack const* kaon = mPicoDstMaker->picoDst()->track(kp->kaonIdx());
+  StPicoTrack const* pion = mPicoDstMaker->picoDst()->track(kp->pionIdx());
+
+  //  To be replaced by mHFCuts->isGoodSecondaryVertexPair(kp))
+  bool pairCuts =  std::cos(kp->pointingAngle()) > 0.995 &&
+    kp->dcaDaughters() < 0.005;
 
   return (mHFCuts->isGoodTrack(kaon) && mHFCuts->isGoodTrack(pion) &&
 	  mHFCuts->isTPCKaon(kaon) && mHFCuts->isTPCPion(pion) && 
@@ -710,3 +779,98 @@ void StPicoD0AnaMaker::Clear() {
   fcVertices = 0;
   fParticles->Clear("C");
 }
+
+//________________________________________________________________________________
+int StPicoD0AnaMaker::Reco(StPhysicalHelixD v_kaon[10000],StPhysicalHelixD v_pion[10000],StPhysicalHelixD v_soft_pion[10000],double c_kaon[10000][10],double c_pion[10000][10],double c_soft_pion[10000][10],StThreeVectorF& pVtx,int opt,vector<int>& daughter,int count_k,int count_p)
+{
+
+
+   StPicoEvent *event = (StPicoEvent *)picoDst->event();
+  StThreeVectorF Vtx(-999,-999,-999);
+  Vtx = event->primaryVertex();
+  for(int i=0;i<count_k;i++){
+    for(int j=0;j<count_p;j++){
+      float D_fill[100];
+      float Dstar_fill[100];
+      if(c_kaon[i][1] == c_pion[j][1]) continue;
+      pair<double,double>pathLength = v_kaon[i].pathLengths(v_pion[j]);
+      StThreeVectorD momDCAKaon = v_kaon[i].momentumAt(pathLength.first, event->bField()*kilogauss);
+      StThreeVectorD momDCAPion = v_pion[j].momentumAt(pathLength.second, event->bField()*kilogauss);
+      StThreeVectorD posDCAKaon = v_kaon[i].at(pathLength.first);
+      StThreeVectorD posDCAPion = v_pion[j].at(pathLength.second);
+
+      StLorentzVectorD LV1, LV2;
+      LV1.setPx(momDCAKaon.x());
+      LV1.setPy(momDCAKaon.y());
+      LV1.setPz(momDCAKaon.z());
+      LV1.setE(momDCAKaon.massHypothesis(0.493677));
+
+      LV2.setPx(momDCAPion.x());
+      LV2.setPy(momDCAPion.y());
+      LV2.setPz(momDCAPion.z());
+      LV2.setE(momDCAPion.massHypothesis(0.13957));
+      StLorentzVectorD kstar = LV1;
+      StLorentzVectorD rc_d0 = LV1+LV2;
+      kstar.boost(-rc_d0);
+      StThreeVectorF rc_d0_mom(rc_d0.x(),rc_d0.y(),rc_d0.z());
+      float rc_d0_x = posDCAKaon.x() + (posDCAPion.x()-posDCAKaon.x())/2;
+      float rc_d0_y = posDCAKaon.y() + (posDCAPion.y()-posDCAKaon.y())/2;
+      float rc_d0_z = posDCAKaon.z() + (posDCAPion.z()-posDCAKaon.z())/2;
+      StThreeVectorF rc_d0_pos(rc_d0_x,rc_d0_y,rc_d0_z);
+
+      double DCA_pi_K = (posDCAPion-posDCAKaon).mag();//Distance of K and π
+      double theta = rc_d0_mom.angle( (rc_d0_pos-Vtx) );
+      double DCA_prm = (rc_d0_pos-Vtx).mag();//distance of D0 and primary vertex
+      double theta_refit = rc_d0_mom.angle( (rc_d0_pos-pVtx) );
+      double DCA_prm_refit = (rc_d0_pos-pVtx).mag();//distance of D0 and primary vertex
+      //double thetastar = rc_d0.vect().angle(kstar.vect());
+      double Dmass = (LV1+LV2).m();
+      double dca_k = v_kaon[i].geometricSignedDistance(pVtx);
+      double dca_p = v_pion[j].geometricSignedDistance(pVtx);
+      D_fill[0] = Dmass;
+      D_fill[1] = cos(theta);
+      D_fill[2] = DCA_prm;
+      D_fill[3] = DCA_pi_K;
+      D_fill[4] = (LV1+LV2).perp();
+      D_fill[5] = c_kaon[i][0] * c_pion[j][0];
+      D_fill[6] = c_kaon[i][1];
+      D_fill[7] = c_kaon[i][2];
+      D_fill[8] = c_kaon[i][3];
+      D_fill[9] = c_kaon[i][4];
+      D_fill[10] = c_pion[j][1];
+      D_fill[11] = c_pion[j][2];
+      D_fill[12] = c_pion[j][3];
+      D_fill[13] = c_pion[j][4];
+      D_fill[14] = c_kaon[i][5];
+      D_fill[15] = cos(theta_refit);
+      D_fill[16] = DCA_prm_refit;
+      D_fill[17] = c_pion[j][5];
+      D_fill[18] = dca_k;
+      D_fill[19] = dca_p;
+     
+      if(fabs(dca_k)>0.008&&fabs(dca_p)>0.008&& cos(theta_refit)>0.995 && DCA_pi_K<0.005 && opt==1)
+      {
+        if(D_fill[5]==-1)
+          mDmasstest_unlike->Fill(Dmass);
+          mDmasstest_like->Fill(Dmass);
+      }
+      if(opt==1) continue;
+      if(fabs(c_kaon[i][2])>0.008 && fabs(c_pion[j][2])>0.008 && cos(theta)>0.995 && DCA_pi_K<0.005)
+      {
+        if(D_fill[5]==-1)
+          mDmass_unlike->Fill(Dmass);
+          mDmass_like->Fill(Dmass);
+      }
+
+      if(fabs(dca_k)>0.008&&fabs(dca_p)>0.008&& cos(theta_refit)>0.995 && DCA_pi_K<0.005)
+      {
+        if(D_fill[5]==-1)
+          mDmasscut_unlike->Fill(Dmass);
+          mDmasscut_like->Fill(Dmass);
+      }
+    }
+  }
+  return 1;
+}
+
+

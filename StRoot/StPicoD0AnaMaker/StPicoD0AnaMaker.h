@@ -24,6 +24,7 @@
 #include "Math/GSLMinimizer1D.h"
 #include "TCanvas.h"
 #include "TH1K.h"
+#include "TH1D.h"
 #include "TH2F.h"
 #include "StiMaker/StKFVerticesCollection.h"
 #include "StPhysicalHelixD.hh"
@@ -61,6 +62,8 @@ class StPicoD0AnaMaker : public StMaker
     int getEntries() const;
 
     void setHFCuts(StHFCuts* cuts);    
+
+    int Reco(StPhysicalHelixD v_kaon[10000],StPhysicalHelixD v_pion[10000],StPhysicalHelixD v_soft_pion[10000],double c_kaon[10000][10],double c_pion[10000][10],double c_soft_pion[10000][10],StThreeVectorF& pVtx,int opt,vector<int>& daughter,int count_k,int count_p);
 /*
 */
 /////Refit public functions//
@@ -89,6 +92,7 @@ class StPicoD0AnaMaker : public StMaker
     void readNextEvent();
 
     bool isGoodPair(StKaonPion const*) const;
+    bool isD0Pair(StKaonPion const*) const;
 
     StPicoDstMaker* mPicoDstMaker;
     StPicoD0Event* mPicoD0Event;
@@ -129,6 +133,14 @@ class StPicoD0AnaMaker : public StMaker
 	//StPrimaryVertexOrder     mVertexOrderMethod; // will default to 0 i.e. orderByNumberOfDaughters
 	TCanvas                 *fc1;
     StDcaGeometry *dca;
+    StDcaGeometry *dcaG;
+    TH1D*  mDmass_unlike;
+    TH1D*  mDmass_like;
+    TH1D*  mDmasstest_unlike;
+    TH1D*  mDmasstest_like;
+    TH1D*  mDmasscut_unlike;
+    TH1D*  mDmasscut_like;
+    TH1D*  mMult;
 	StPrimaryVertex *primV;
 //
 
