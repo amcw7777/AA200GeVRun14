@@ -100,12 +100,16 @@ class StMyAnalysisMaker : public StMaker {
 
     TH1D*  mDmasstrigger_unlike;
     TH1D*  mDmasstrigger_like;
-    TH1D*  mDsmasstrigger_unlike;
-    TH1D*  mDsmasstrigger_like;
+    TH1D*  mDmasstriggertest_unlike;
+    TH1D*  mDmasstriggertest_like;
     TH1D*  mDmasstriggercut_unlike;
     TH1D*  mDmasstriggercut_like;
+
+    TH1D*  mDsmasstrigger_unlike;
+    TH1D*  mDsmasstrigger_like;
     TH1D*  mDsmasstriggercut_unlike;
     TH1D*  mDsmasstriggercut_like;
+    TH1D*  mMult;
     StDcaGeometry *dca;
     StDcaGeometry *dcaG;
 //

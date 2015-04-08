@@ -174,47 +174,47 @@ void StMyAnalysisMaker::DeclareHistograms() {
 
   mDmasstrigger_unlike = new TH1D("mDmasstrigger_unlike","",2500,0.5,3);
   mDmasstrigger_like = new TH1D("mDmasstrigger_like","",2500,0.5,3);
-  mDsmasstrigger_unlike = new TH1D("mDsmasstrigger_unlike","",200,1.4,1.6);
-  mDsmasstrigger_like = new TH1D("mDsmasstrigger_like","",200,1.4,1.6);
   mDmasstriggercut_unlike = new TH1D("mDmasstriggercut_unlike","",2500,0.5,3);
   mDmasstriggercut_like = new TH1D("mDmasstriggercut_like","",2500,0.5,3);
+  mDmasstriggertest_unlike = new TH1D("mDmasstriggertest_unlike","",2500,0.5,3);
+  mDmasstriggertest_like = new TH1D("mDmasstriggertest_like","",2500,0.5,3);
+  mDsmasstrigger_unlike = new TH1D("mDsmasstrigger_unlike","",200,1.4,1.6);
+  mDsmasstrigger_like = new TH1D("mDsmasstrigger_like","",200,1.4,1.6);
   mDsmasstriggercut_unlike = new TH1D("mDsmasstriggercut_unlike","",200,1.4,1.6);
   mDsmasstriggercut_like = new TH1D("mDsmasstriggercut_like","",200,1.4,1.6);
-
+  mMult = new TH1D("mMult","",500,0,500);
 }
 
 //-----------------------------------------------------------------------------
 void StMyAnalysisMaker::WriteHistograms() {
-  mTracktuple->Write();
-  mEventtuple->Write();
-  mDtuple->Write();
-  mDstartuple->Write();
-  mCosTheta->Write();
-  mCosThetastar->Write();
-  mPxlCosThetastar->Write();
-  mdRprm->Write();
-  mdRKpi->Write();
-  mPxlCosTheta->Write();
-  mPxldRprm->Write();
-  mPxldRKpi->Write();
+//  mTracktuple->Write();
+//  mEventtuple->Write();
+//  mDtuple->Write();
+//  mDstartuple->Write();
+//  mCosTheta->Write();
+//  mCosThetastar->Write();
+//  mPxlCosThetastar->Write();
+//  mdRprm->Write();
+//  mdRKpi->Write();
+//  mPxlCosTheta->Write();
+//  mPxldRprm->Write();
+//  mPxldRKpi->Write();
+
+  mMult->Write();
+
   mDmass_unlike->Write();
   mDmass_like->Write();
   mDmasscut_unlike->Write();
   mDmasscut_like->Write();
   mDmasstest_unlike->Write();
   mDmasstest_like->Write();
-  mDsmass_unlike->Write();
-  mDsmass_like->Write();
-  mDsmasscut_unlike->Write();
-  mDsmasscut_like->Write();
+
   mDmasstrigger_unlike->Write();
   mDmasstrigger_like->Write();
   mDmasstriggercut_unlike->Write();
   mDmasstriggercut_like->Write();
-  mDsmasstrigger_unlike->Write();
-  mDsmasstrigger_like->Write();
-  mDsmasstriggercut_unlike->Write();
-  mDsmasstriggercut_like->Write();
+  mDmasstriggertest_unlike->Write();
+  mDmasstriggertest_like->Write();
 }
 
 //----------------------------------------------------------------------------- 
@@ -252,7 +252,8 @@ Int_t StMyAnalysisMaker::Make() {
   vector<int> daughter;
   daughter.clear(); 
   StPicoEvent *event = (StPicoEvent *)mPicoDst->event();
-  if(!(event->isMinBias())||event->refMult()>100)
+  if(!(event->isMinBias())||event->refMult()>200)
+//  if(!(event->isMinBias()))
   { 
     LOG_WARN << " Not Min Bias! Skip! " << endm;
     return kStWarn;
@@ -267,6 +268,7 @@ Int_t StMyAnalysisMaker::Make() {
 
 //Added by Leon////////////Event Information
 //  double field = event->bField() * pow(10,-14);
+  mMult->Fill(event->refMult());
   event_fill[0] = event->bField();
   event_fill[1] = pVtx.x();
   event_fill[2] = pVtx.y();
@@ -434,7 +436,7 @@ Int_t StMyAnalysisMaker::Make() {
   event_fill[5] = testVertex.y();
   event_fill[6] = testVertex.z();
   int option = 1;//1:store d daughers; 2:store D information; 3:store Ds information
-  Reco(v_k,v_p,v_soft_p,c_k,c_p,c_soft_p,pVtx,option,daughter,count_k,count_p);
+  Reco(v_k,v_p,v_soft_p,c_k,c_p,c_soft_p,testVertex,option,daughter,count_k,count_p);
   primaryVertexRefit(&testVertex,daughter);
   event_fill[11] = testVertex.x();
   event_fill[12] = testVertex.y();
@@ -992,7 +994,7 @@ int StMyAnalysisMaker::Reco(StPhysicalHelixD v_kaon[10000],StPhysicalHelixD v_pi
       D_fill[14] = c_kaon[i][5];
       D_fill[15] = cos(theta_refit);
       D_fill[16] = DCA_prm_refit;
-      D_fill[17] = c_pion[i][5];
+      D_fill[17] = c_pion[j][5];
       D_fill[18] = dca_k;
       D_fill[19] = dca_p;
      
@@ -1003,12 +1005,16 @@ int StMyAnalysisMaker::Reco(StPhysicalHelixD v_kaon[10000],StPhysicalHelixD v_pi
         daughter.push_back(c_kaon[i][1]);
         daughter.push_back(c_pion[j][1]);
       }
-      if(dca_k>0.008&&dca_p>0.008&& cos(theta_refit)>0.995 && DCA_pi_K<0.005 && opt==1)
+      if(fabs(dca_k)>0.008&&fabs(dca_p)>0.008&& cos(theta_refit)>0.995 && DCA_pi_K<0.005 && opt==1)
       {
         if(D_fill[5]==-1)
           mDmasstest_unlike->Fill(Dmass);
         if(D_fill[5]==1)
           mDmasstest_like->Fill(Dmass);
+        if(D_fill[5]==-1 && c_pion[j][5]<100)
+          mDmasstriggertest_unlike->Fill(Dmass);
+        if(D_fill[5]==1 && c_pion[j][5]<100)
+          mDmasstriggertest_like->Fill(Dmass);
       }
       if(opt==1) continue;//To determine the D0 daughters
 ///////////////////////////////////////////
@@ -1019,19 +1025,27 @@ int StMyAnalysisMaker::Reco(StPhysicalHelixD v_kaon[10000],StPhysicalHelixD v_pi
 //      mdRKpi->Fill(D_fill[3]);
 //      mPxlCosTheta->Fill(cos(theta_refit));
 //      mPxldRprm->Fill(DCA_prm_refit);
-      if(c_kaon[i][2]>0.008 && c_pion[j][2]>0.008 && cos(theta)>0.995 && DCA_pi_K<0.005)
+      if(fabs(c_kaon[i][2])>0.008 && fabs(c_pion[j][2])>0.008 && cos(theta)>0.995 && DCA_pi_K<0.005)
       {
         if(D_fill[5]==-1)
           mDmass_unlike->Fill(Dmass);
         if(D_fill[5]==1)
           mDmass_like->Fill(Dmass);
+        if(D_fill[5]==-1 && c_pion[j][5]<100)
+          mDmasstrigger_unlike->Fill(Dmass);
+        if(D_fill[5]==1 && c_pion[j][5]<100)
+          mDmasstrigger_like->Fill(Dmass);
       }
-      if(dca_k>0.008&&dca_p>0.008&& cos(theta_refit)>0.995 && DCA_pi_K<0.005)
+      if(fabs(dca_k)>0.008&&fabs(dca_p)>0.008&& cos(theta_refit)>0.995 && DCA_pi_K<0.005)
       {
         if(D_fill[5]==-1)
           mDmasscut_unlike->Fill(Dmass);
         if(D_fill[5]==1)
           mDmasscut_like->Fill(Dmass);
+        if(D_fill[5]==-1 && c_pion[j][5]<100)
+          mDmasstriggercut_unlike->Fill(Dmass);
+        if(D_fill[5]==1 && c_pion[j][5]<100)
+          mDmasstriggercut_like->Fill(Dmass);
       }
       //if(DCA_prm<0.005) continue;
       //if(cos(theta)<0.95) continue;
