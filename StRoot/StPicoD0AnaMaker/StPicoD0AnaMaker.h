@@ -33,6 +33,7 @@ class StEvent;
 class StDcaGeometry; 
 class KFParticle; 
 class StKFVerticesCollection; 
+class StKFVertexMaker;
 class TSpectrum; 
 class StAnneling;
 //// 
@@ -63,36 +64,13 @@ class StPicoD0AnaMaker : public StMaker
 
     void setHFCuts(StHFCuts* cuts);    
 
-    int Reco(StPhysicalHelixD v_kaon[10000],StPhysicalHelixD v_pion[10000],StPhysicalHelixD v_soft_pion[10000],double c_kaon[10000][10],double c_pion[10000][10],double c_soft_pion[10000][10],StThreeVectorF& pVtx,int opt,vector<int>& daughter,int count_k,int count_p);
-/*
-*/
-/////Refit public functions//
-    double primaryVertexRefit(StThreeVectorF *, vector<int>& daughter);
-    void Fit();
-    TH1F *VtxM() {return fVtxM;}
-    void SetZwindow(Double_t z = 2) {fzWindow = z;}
-    void SetDefaultTempLog(Double_t tLog = 2) {fTempLog = tLog;}
-    static Double_t AnnelingFcn(Double_t TInv=1);
-  //  Double_t AnnelingFcn(Double_t TInv=1);
-    TH1 *Vtx() {return fVtx;}
-    StKFVerticesCollection* Vertices() {return fcVertices;}
-    TObjArray &Particles() {return *fParticles;}
-    KFParticle *AddTrackAt(const StDcaGeometry *dca,Int_t kg);
-//    KFParticle *AddTrackAt(StDcaGeometry *dca,Int_t kg);
-    void calculateRank(StPrimaryVertex *primV);
-    void SetCanvas(TCanvas *c1) {fc1 = c1;}
-    void Clear();
-    TCanvas *Canvas() {return fc1;}
-    TH1F *GetVtxs(Int_t pass = 0) {return fVtxs[pass];}
-    TH1K *GetVtxKs(Int_t pass = 0) {return fVtxKs[pass];}
-    TH1F *GetVtxM() {return fVtxM;}
-
   private:
     StPicoD0AnaMaker() {}
     void readNextEvent();
 
     bool isGoodPair(StKaonPion const*) const;
     bool isD0Pair(StKaonPion const*) const;
+    int primaryVertexRefit(StThreeVectorF *, vector<int>& daughter);
 
     StPicoDstMaker* mPicoDstMaker;
     StPicoD0Event* mPicoD0Event;
@@ -114,34 +92,8 @@ class StPicoD0AnaMaker : public StMaker
 //	//StKFVertexMaker private
         TNtuple *mRefittuple;
         TH2F *timemult;
-	TObjArray *fParticles; // KF particles
-	Int_t fNzBins;
-	Int_t fNPasses;
-	TSpectrum *fSpectrum;
-	Double_t fzWindow;
-	TH1F  *fVtxM;
-	StKFVerticesCollection **fVerticesPass;
-	static StKFVerticesCollection *fcVertices;  // current vertex collection
-	//StKFVerticesCollection *fcVertices;  // current vertex collection
-	Double_t fTempLog;
-	ROOT::Math::GSLMinimizer1D *fminBrent;
-	ROOT::Math::Functor1D      *func;
-	TH1F *fVtxs[2];
-	TH1  *fVtx;
-	TH1K *fVtxKs[2];
-	Bool_t mBeamLine;
-	//StPrimaryVertexOrder     mVertexOrderMethod; // will default to 0 i.e. orderByNumberOfDaughters
-	TCanvas                 *fc1;
-    StDcaGeometry *dca;
-    StDcaGeometry *dcaG;
-    TH1D*  mDmass_unlike;
-    TH1D*  mDmass_like;
-    TH1D*  mDmasstest_unlike;
-    TH1D*  mDmasstest_like;
-    TH1D*  mDmasscut_unlike;
-    TH1D*  mDmasscut_like;
-    TH1D*  mMult;
-	StPrimaryVertex *primV;
+   TH1D *mMult;
+   StDcaGeometry *dcaG;
 //
 
     ClassDef(StPicoD0AnaMaker, 1)
