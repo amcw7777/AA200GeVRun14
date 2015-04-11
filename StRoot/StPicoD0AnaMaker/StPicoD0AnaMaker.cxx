@@ -101,16 +101,14 @@ Int_t StPicoD0AnaMaker::Init()
    mChain->SetBranchAddress("dEvent", &mPicoD0Event);
 
    mOutputFile = new TFile(mOutFileName.Data(), "RECREATE");
-   mRefittuple = new TNtuple("mRefittuple","mRefittuple","refitx:refity:refitz:prmx:prmy:prmz:runId:eventId:time:time_new:mult");
+//   mRefittuple = new TNtuple("mRefittuple","mRefittuple","refitx:refity:refitz:prmx:prmy:prmz:runId:eventId:time:time_new:mult");
    timemult = new TH2F("timemult","",100,0,500,100,0,5);
-/*
   mDmass_unlike = new TH1D("mDmass_unlike","",2500,0.5,3);
   mDmass_like = new TH1D("mDmass_like","",2500,0.5,3);
   mDmasscut_unlike = new TH1D("mDmasscut_unlike","",2500,0.5,3);
   mDmasscut_like = new TH1D("mDmasscut_like","",2500,0.5,3);
   mDmasstest_unlike = new TH1D("mDmasstest_unlike","",2500,0.5,3);
   mDmasstest_like = new TH1D("mDmasstest_like","",2500,0.5,3);
-*/
   mMult = new TH1D("mMult","",500,0,500);
 
    mOutputFile->cd();
@@ -134,23 +132,21 @@ Int_t StPicoD0AnaMaker::Finish()
    LOG_INFO << " StPicoD0AnaMaker - writing data and closing output file " <<endm;
    mOutputFile->cd();
    // save user variables here
-   mRefittuple->Write();
+//   mRefittuple->Write();
   // timemult-Write();
 
   mMult->Write();
-/*
   mDmass_unlike->Write();
   mDmass_like->Write();
   mDmasscut_unlike->Write();
   mDmasscut_like->Write();
   mDmasstest_unlike->Write();
   mDmasstest_like->Write();
-*/
  
 
  
    mOutputFile->Close();
-  SafeDelete(dcaG);
+   delete dcaG;
 	
    return kStOK;
 }
@@ -196,13 +192,6 @@ Int_t StPicoD0AnaMaker::Make()
      return kStWarn;
    }
    float mult = event->refMult();
-/*
-   if(mult>100)
-   {
-     LOG_WARN << "Mult > 100! Skip! " << endm;
-     return kStWarn;
-   }
-*/
    mMult->Fill(event->refMult());
    if(event) {
      pVtx = event->primaryVertex();
@@ -238,14 +227,21 @@ Int_t StPicoD0AnaMaker::Make()
       StPicoTrack const* pion = picoDst->track(kp->pionIdx());
       StPhysicalHelixD kHelix = kaon->dcaGeometry().helix();
       StPhysicalHelixD pHelix = pion->dcaGeometry().helix();
-/*
       if((kHelix.origin() - pVtx).mag()>0.008 && (pHelix.origin() - pVtx).mag()>0.008)
         mDmass_like->Fill(kp->m());
       if((kHelix.origin() - testVertex).mag()>0.008 && (pHelix.origin() - testVertex).mag()>0.008)
         mDmasstest_like->Fill(kp->m());
       if((kHelix.origin() - d0Vertex).mag()>0.008 && (pHelix.origin() - d0Vertex).mag()>0.008)
         mDmasscut_like->Fill(kp->m());
-*/
+      if(mult<100)
+      {
+	if((kHelix.origin() - pVtx).mag()>0.008 && (pHelix.origin() - pVtx).mag()>0.008)
+	  mDmass_unlike->Fill(kp->m());
+	if((kHelix.origin() - testVertex).mag()>0.008 && (pHelix.origin() - testVertex).mag()>0.008)
+	  mDmasstest_unlike->Fill(kp->m());
+	if((kHelix.origin() - d0Vertex).mag()>0.008 && (pHelix.origin() - d0Vertex).mag()>0.008)
+	  mDmasscut_unlike->Fill(kp->m());
+      }
 
    }
    refittuple_fill[0] = testVertex.x(); 
@@ -254,12 +250,12 @@ Int_t StPicoD0AnaMaker::Make()
    refittuple_fill[3] = d0Vertex.x(); 
    refittuple_fill[4] = d0Vertex.y(); 
    refittuple_fill[5] = d0Vertex.z(); 
-   refittuple_fill[6] = (double)mPicoD0Event->runId(); 
-   refittuple_fill[7] = (double)mPicoD0Event->eventId(); 
- //  refittuple_fill[8] = dtime1; 
-  // refittuple_fill[9] = dtime2; 
+   refittuple_fill[3] = pVtx.x(); 
+   refittuple_fill[4] = pVtx.y(); 
+   refittuple_fill[5] = pVtx.z(); 
+   refittuple_fill[9] = 0;//dtime2; 
    refittuple_fill[10] = mult; 
-   mRefittuple->Fill(refittuple_fill);
+   //mRefittuple->Fill(refittuple_fill);
    return kStOK;
 }
 //-----------------------------------------------------------------------------
@@ -324,7 +320,8 @@ int StPicoD0AnaMaker::primaryVertexRefit(StThreeVectorF *mRefitVertex, vector<in
      if (flagDdaughterCand == 1) continue;
      N++;
   }
-  KFParticle *particles[N];
+  //KFParticle *particles[N];
+  KFParticle **particles = new KFParticle*[N];
   StKFVertexMaker fitter;
   Int_t NGoodGlobals = 0;
   for (int i=0; i < nTracks; i++) {
@@ -352,6 +349,7 @@ int StPicoD0AnaMaker::primaryVertexRefit(StThreeVectorF *mRefitVertex, vector<in
   KFVertex aVertex;
   aVertex.ConstructPrimaryVertex((const KFParticle **) particles, N,
                                   (Bool_t*) Flag.GetArray(),TMath::Sqrt(StAnneling::Chi2Cut()/2));
+  delete [] particles;
   if(aVertex.GetX()==0) return 0;
   mRefitVertex->set(aVertex.GetX(),aVertex.GetY(),aVertex.GetZ());
   return 1;
