@@ -101,14 +101,14 @@ Int_t StPicoD0AnaMaker::Init()
    mChain->SetBranchAddress("dEvent", &mPicoD0Event);
 
    mOutputFile = new TFile(mOutFileName.Data(), "RECREATE");
-//   mRefittuple = new TNtuple("mRefittuple","mRefittuple","refitx:refity:refitz:prmx:prmy:prmz:runId:eventId:time:time_new:mult");
+   mRefittuple = new TNtuple("mRefittuple","mRefittuple","testx:testy:testz:refitx:refity:refitz:prmx:prmy:prmz:mult");
    timemult = new TH2F("timemult","",100,0,500,100,0,5);
-  mDmass_unlike = new TH1D("mDmass_unlike","",2500,0.5,3);
-  mDmass_like = new TH1D("mDmass_like","",2500,0.5,3);
-  mDmasscut_unlike = new TH1D("mDmasscut_unlike","",2500,0.5,3);
-  mDmasscut_like = new TH1D("mDmasscut_like","",2500,0.5,3);
-  mDmasstest_unlike = new TH1D("mDmasstest_unlike","",2500,0.5,3);
-  mDmasstest_like = new TH1D("mDmasstest_like","",2500,0.5,3);
+  mDmass_unlike = new TH1D("mDmass_unlike","",500,1.6,2.1);
+  mDmass_like = new TH1D("mDmass_like","",500,1.6,2.1);
+  mDmasscut_unlike = new TH1D("mDmasscut_unlike","",500,1.6,2.1);
+  mDmasscut_like = new TH1D("mDmasscut_like","",500,1.6,2.1);
+  mDmasstest_unlike = new TH1D("mDmasstest_unlike","",500,1.6,2.1);
+  mDmasstest_like = new TH1D("mDmasstest_like","",500,1.6,2.1);
   mMult = new TH1D("mMult","",500,0,500);
 
    mOutputFile->cd();
@@ -132,7 +132,7 @@ Int_t StPicoD0AnaMaker::Finish()
    LOG_INFO << " StPicoD0AnaMaker - writing data and closing output file " <<endm;
    mOutputFile->cd();
    // save user variables here
-//   mRefittuple->Write();
+   mRefittuple->Write();
   // timemult-Write();
 
   mMult->Write();
@@ -179,7 +179,6 @@ Int_t StPicoD0AnaMaker::Make()
    // -------------- USER ANALYSIS -------------------------
    TClonesArray const * aKaonPion = mPicoD0Event->kaonPionArray();
 
-   float refittuple_fill[20]; 
    
    StThreeVectorF pVtx(-999.,-999.,-999.);
    StThreeVectorF testVertex(-999.,-999.,-999.);
@@ -244,18 +243,18 @@ Int_t StPicoD0AnaMaker::Make()
       }
 
    }
+   float refittuple_fill[20]; 
    refittuple_fill[0] = testVertex.x(); 
    refittuple_fill[1] = testVertex.y(); 
    refittuple_fill[2] = testVertex.z(); 
    refittuple_fill[3] = d0Vertex.x(); 
    refittuple_fill[4] = d0Vertex.y(); 
    refittuple_fill[5] = d0Vertex.z(); 
-   refittuple_fill[3] = pVtx.x(); 
-   refittuple_fill[4] = pVtx.y(); 
-   refittuple_fill[5] = pVtx.z(); 
-   refittuple_fill[9] = 0;//dtime2; 
-   refittuple_fill[10] = mult; 
-   //mRefittuple->Fill(refittuple_fill);
+   refittuple_fill[6] = pVtx.x(); 
+   refittuple_fill[7] = pVtx.y(); 
+   refittuple_fill[8] = pVtx.z(); 
+   refittuple_fill[9] = mult; 
+   mRefittuple->Fill(refittuple_fill);
    return kStOK;
 }
 //-----------------------------------------------------------------------------
@@ -320,8 +319,8 @@ int StPicoD0AnaMaker::primaryVertexRefit(StThreeVectorF *mRefitVertex, vector<in
      if (flagDdaughterCand == 1) continue;
      N++;
   }
-  //KFParticle *particles[N];
-  KFParticle **particles = new KFParticle*[N];
+  KFParticle *particles[N];
+  //KFParticle **particles = new KFParticle*[N];
   StKFVertexMaker fitter;
   Int_t NGoodGlobals = 0;
   for (int i=0; i < nTracks; i++) {
@@ -349,7 +348,11 @@ int StPicoD0AnaMaker::primaryVertexRefit(StThreeVectorF *mRefitVertex, vector<in
   KFVertex aVertex;
   aVertex.ConstructPrimaryVertex((const KFParticle **) particles, N,
                                   (Bool_t*) Flag.GetArray(),TMath::Sqrt(StAnneling::Chi2Cut()/2));
-  delete [] particles;
+//  delete [] particles;
+  for(int i=0;i<N;++i)
+  {
+    delete particles[i];
+  }
   if(aVertex.GetX()==0) return 0;
   mRefitVertex->set(aVertex.GetX(),aVertex.GetY(),aVertex.GetZ());
   return 1;

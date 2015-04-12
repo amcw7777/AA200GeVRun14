@@ -90,7 +90,7 @@ class StPicoD0AnaMaker : public StMaker
     // add your member variables here. 
     // Remember that ntuples size can be really big, use histograms where appropriate
 //	//StKFVertexMaker private
-//     TNtuple *mRefittuple;
+     TNtuple *mRefittuple;
      TH2F *timemult;
      TH1D *mMult;
      StDcaGeometry *dcaG;
