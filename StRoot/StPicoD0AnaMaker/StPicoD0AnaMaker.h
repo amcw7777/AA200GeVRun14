@@ -71,6 +71,7 @@ class StPicoD0AnaMaker : public StMaker
     bool isGoodPair(StKaonPion const*) const;
     bool isD0Pair(StKaonPion const*) const;
     int primaryVertexRefit(StThreeVectorF *, vector<int>& daughter);
+    int D0Reco(StThreeVectorF *);
 
     StPicoDstMaker* mPicoDstMaker;
     StPicoD0Event* mPicoD0Event;
@@ -100,6 +101,8 @@ class StPicoD0AnaMaker : public StMaker
      TH1D *mDmass_unlike;
      TH1D *mDmasscut_unlike;
      TH1D *mDmasstest_unlike;
+     TH1D *mCostheta;
+     TH1D *mdRkp;
 //
 
     ClassDef(StPicoD0AnaMaker, 1)

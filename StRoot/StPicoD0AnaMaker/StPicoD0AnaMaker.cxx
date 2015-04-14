@@ -110,6 +110,8 @@ Int_t StPicoD0AnaMaker::Init()
   mDmasstest_unlike = new TH1D("mDmasstest_unlike","",500,1.6,2.1);
   mDmasstest_like = new TH1D("mDmasstest_like","",500,1.6,2.1);
   mMult = new TH1D("mMult","",500,0,500);
+  mCostheta = new TH1D("mcostheta","",1000,-1,1);
+  mdRkp = new TH1D("mdRkp","",1000,0,0.1);
 
    mOutputFile->cd();
 
@@ -142,6 +144,8 @@ Int_t StPicoD0AnaMaker::Finish()
   mDmasscut_like->Write();
   mDmasstest_unlike->Write();
   mDmasstest_like->Write();
+  mCostheta ->Write();
+  mdRkp->Write();
  
 
  
@@ -190,6 +194,12 @@ Int_t StPicoD0AnaMaker::Make()
      LOG_WARN << " Not Min Bias! Skip! " << endm;
      return kStWarn;
    }
+   int aEventStat[mHFCuts->eventStatMax()];
+   if(!(mHFCuts->isGoodEvent(event,aEventStat)))
+   {
+     LOG_WARN << " Not Good Event! Skip! " << endm;
+     return kStWarn;
+   }
    float mult = event->refMult();
    mMult->Fill(event->refMult());
    if(event) {
@@ -216,33 +226,8 @@ Int_t StPicoD0AnaMaker::Make()
 
    }
 
-   //primaryVertexRefit(&d0Vertex,daughter);
-   for (int idx = 0; idx < aKaonPion->GetEntries(); ++idx)
-   {
-      // this is an example of how to get the kaonPion pairs and their corresponsing tracks
-      StKaonPion const* kp = (StKaonPion*)aKaonPion->At(idx);
-      if(!isD0Pair(kp)) continue;
-      StPicoTrack const* kaon = picoDst->track(kp->kaonIdx());
-      StPicoTrack const* pion = picoDst->track(kp->pionIdx());
-      StPhysicalHelixD kHelix = kaon->dcaGeometry().helix();
-      StPhysicalHelixD pHelix = pion->dcaGeometry().helix();
-      if((kHelix.origin() - pVtx).mag()>0.008 && (pHelix.origin() - pVtx).mag()>0.008)
-        mDmass_like->Fill(kp->m());
-      if((kHelix.origin() - testVertex).mag()>0.008 && (pHelix.origin() - testVertex).mag()>0.008)
-        mDmasstest_like->Fill(kp->m());
-      if((kHelix.origin() - d0Vertex).mag()>0.008 && (pHelix.origin() - d0Vertex).mag()>0.008)
-        mDmasscut_like->Fill(kp->m());
-      if(mult<100)
-      {
-	if((kHelix.origin() - pVtx).mag()>0.008 && (pHelix.origin() - pVtx).mag()>0.008)
-	  mDmass_unlike->Fill(kp->m());
-	if((kHelix.origin() - testVertex).mag()>0.008 && (pHelix.origin() - testVertex).mag()>0.008)
-	  mDmasstest_unlike->Fill(kp->m());
-	if((kHelix.origin() - d0Vertex).mag()>0.008 && (pHelix.origin() - d0Vertex).mag()>0.008)
-	  mDmasscut_unlike->Fill(kp->m());
-      }
-
-   }
+   primaryVertexRefit(&d0Vertex,daughter);
+   D0Reco(&pVtx);
    float refittuple_fill[20]; 
    refittuple_fill[0] = testVertex.x(); 
    refittuple_fill[1] = testVertex.y(); 
@@ -293,7 +278,8 @@ bool StPicoD0AnaMaker::isD0Pair(StKaonPion const* const kp) const
 
   return (mHFCuts->isGoodTrack(kaon) && mHFCuts->isGoodTrack(pion) &&
 	  mHFCuts->isTPCKaon(kaon) && mHFCuts->isTPCPion(pion) && 
-	  pairCuts);
+	  pairCuts
+          );
 }
 /*
 */
@@ -370,7 +356,7 @@ int StPicoD0AnaMaker::primaryVertexRefit(StThreeVectorF *mRefitVertex, vector<in
   for(int i=0;i<N;++i)
   {
     particles[i]->Clear();
-//    delete particles[i];
+    delete particles[i];
   }
 
   if(aVertex.GetX()==0) return 0;
@@ -378,3 +364,28 @@ int StPicoD0AnaMaker::primaryVertexRefit(StThreeVectorF *mRefitVertex, vector<in
   return 1;
 }
 
+
+int StPicoD0AnaMaker::D0Reco(StThreeVectorF *mPVtx) 
+{
+
+   TClonesArray const * aKaonPion = mPicoD0Event->kaonPionArray();
+   picoDst = mPicoDstMaker->picoDst();
+   StPicoEvent *event = (StPicoEvent *)picoDst->event();
+   for (int idx = 0; idx < aKaonPion->GetEntries(); ++idx)
+   {
+      // this is an example of how to get the kaonPion pairs and their corresponsing tracks
+      StKaonPion const* kp = (StKaonPion*)aKaonPion->At(idx);
+      if(!isD0Pair(kp)) continue;
+      StPicoTrack const* kaon = picoDst->track(kp->kaonIdx());
+      StPicoTrack const* pion = picoDst->track(kp->pionIdx());
+      StPhysicalHelixD kHelix = kaon->dcaGeometry().helix();
+      StPhysicalHelixD pHelix = pion->dcaGeometry().helix();
+      StThreeVectorF kmom = kHelix.momentum(event->bField()*kilogauss);
+      StThreeVectorF pmom = pHelix.momentum(event->bField()*kilogauss);
+      if( sqrt(kmom.x()*kmom.x()+kmom.y()*kmom.y())<1.2 || sqrt(pmom.x()*pmom.x()+pmom.y()*pmom.y())<1.2) continue;
+      if((kHelix.origin() - *mPVtx).mag()>0.008 && (pHelix.origin() - *mPVtx).mag()>0.008)
+        mDmass_like->Fill(kp->m());
+
+   }
+
+}
