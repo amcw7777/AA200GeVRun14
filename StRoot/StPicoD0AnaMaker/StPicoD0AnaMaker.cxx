@@ -216,7 +216,7 @@ Int_t StPicoD0AnaMaker::Make()
 
    }
 
-   primaryVertexRefit(&d0Vertex,daughter);
+   //primaryVertexRefit(&d0Vertex,daughter);
    for (int idx = 0; idx < aKaonPion->GetEntries(); ++idx)
    {
       // this is an example of how to get the kaonPion pairs and their corresponsing tracks
@@ -320,8 +320,8 @@ int StPicoD0AnaMaker::primaryVertexRefit(StThreeVectorF *mRefitVertex, vector<in
      N++;
   }
   KFParticle *particles[N];
-  //KFParticle **particles = new KFParticle*[N];
-  StKFVertexMaker fitter;
+//  KFParticle **particles = new KFParticle*[N];
+//  StKFVertexMaker fitter;
   Int_t NGoodGlobals = 0;
   for (int i=0; i < nTracks; i++) {
      StPicoTrack *gTrack = (StPicoTrack*)picoDst->track(i);
@@ -340,7 +340,25 @@ int StPicoD0AnaMaker::primaryVertexRefit(StThreeVectorF *mRefitVertex, vector<in
      if (flagDdaughterCand == 1) continue;
 
 
-     particles[NGoodGlobals] = fitter.AddTrackAt(dcaG,kg);
+    // particles[NGoodGlobals] = fitter.AddTrackAt(dcaG,kg);
+    if (! dcaG) return 0;
+   Double_t xyzp[6], CovXyzp[21];
+   dcaG->GetXYZ(xyzp,CovXyzp);
+   static MTrack track;
+   track.SetParameters(xyzp);
+   track.SetCovarianceMatrix(CovXyzp);
+   track.SetNDF(1);
+   //    track.SetChi2(GlobalTracks_mChiSqXY[k]);
+   track.SetID(kg);
+   Int_t q   = 1;
+   Int_t pdg = 211;
+   if (dcaG->charge() < 0) {
+     q = -1;
+     pdg = -211;
+   } 
+   track.SetCharge(q);
+   particles[NGoodGlobals] = new KFParticle(track, pdg);
+   particles[NGoodGlobals]->SetID(kg);
 //////////////////
      NGoodGlobals++;
   }
@@ -351,8 +369,10 @@ int StPicoD0AnaMaker::primaryVertexRefit(StThreeVectorF *mRefitVertex, vector<in
 //  delete [] particles;
   for(int i=0;i<N;++i)
   {
-    delete particles[i];
+    particles[i]->Clear();
+//    delete particles[i];
   }
+
   if(aVertex.GetX()==0) return 0;
   mRefitVertex->set(aVertex.GetX(),aVertex.GetY(),aVertex.GetZ());
   return 1;
