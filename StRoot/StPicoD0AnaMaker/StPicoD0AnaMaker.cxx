@@ -187,7 +187,7 @@ Int_t StPicoD0AnaMaker::Make()
    StThreeVectorF pVtx(-999.,-999.,-999.);
    StThreeVectorF testVertex(-999.,-999.,-999.);
    StThreeVectorF d0Vertex(-999.,-999.,-999.);
-   StThreeVectorF Vertex(-999.,-999.,-999.);
+   //StThreeVectorF Vertex(-999.,-999.,-999.);
    StPicoEvent *event = (StPicoEvent *)picoDst->event();
    if(!(event->isMinBias()))
    {
@@ -201,6 +201,7 @@ Int_t StPicoD0AnaMaker::Make()
      return kStWarn;
    }
    float mult = event->refMult();
+   float const bField = event->bField();
    mMult->Fill(event->refMult());
    if(event) {
      pVtx = event->primaryVertex();
@@ -210,24 +211,48 @@ Int_t StPicoD0AnaMaker::Make()
 
    vector<int> daughter;
    daughter.clear();
-   primaryVertexRefit(&testVertex,daughter);
+   primaryVertexRefit(&testVertex,daughter);//refit vertex using all tracks
 
    for (int idx = 0; idx < aKaonPion->GetEntries(); ++idx)
    {
-      // this is an example of how to get the kaonPion pairs and their corresponsing tracks
       StKaonPion const* kp = (StKaonPion*)aKaonPion->At(idx);
       if(!isGoodPair(kp)) continue;
-
-
-    //  StPicoTrack const* kaon = picoDst->track(kp->kaonIdx());
-    //  StPicoTrack const* pion = picoDst->track(kp->pionIdx());
       daughter.push_back(kp->kaonIdx());
       daughter.push_back(kp->pionIdx());
-
    }
 
-   primaryVertexRefit(&d0Vertex,daughter);
-   D0Reco(&pVtx);
+   primaryVertexRefit(&d0Vertex,daughter);//Refit d0Vertex removing D0 daughters
+ //  D0Reco(&pVtx);
+   for (int idx = 0; idx < aKaonPion->GetEntries(); ++idx)
+   {
+      StKaonPion const* kp = (StKaonPion*)aKaonPion->At(idx);
+      StPicoTrack const* kaon = picoDst->track(kp->kaonIdx());
+      StPicoTrack const* pion = picoDst->track(kp->pionIdx());
+      StKaonPion testkp(kaon,pion,kp->kaonIdx(),kp->pionIdx(),testVertex,bField);
+      StKaonPion d0kp(kaon,pion,kp->kaonIdx(),kp->pionIdx(),d0Vertex,bField);
+     
+      if(isD0Pair(kp))
+      {
+        mDmass_like->Fill(kp->m());
+        if(mult<100)
+          mDmass_unlike->Fill(kp->m());
+      }
+   
+      if(isD0Pair(&testkp))
+      {
+        mDmasstest_like->Fill(testkp.m());
+        if(mult<100)
+          mDmasstest_unlike->Fill(testkp.m());
+      }
+      
+      if(isD0Pair(&d0kp))
+      {
+        mDmasscut_like->Fill(d0kp.m());
+        if(mult<100)
+          mDmasscut_unlike->Fill(d0kp.m());
+      }
+   }
+     
    float refittuple_fill[20]; 
    refittuple_fill[0] = testVertex.x(); 
    refittuple_fill[1] = testVertex.y(); 
@@ -260,8 +285,8 @@ bool StPicoD0AnaMaker::isGoodPair(StKaonPion const* const kp) const
 //    kp->dcaDaughters() < mHFCuts->cutSecondaryPairDcaDaughtersMax();
   bool pairCuts = kp->m()>1.6 && kp->m()<2.1;
 
-  return (mHFCuts->isGoodTrack(kaon) && mHFCuts->isGoodTrack(pion) &&
-	  mHFCuts->isTPCKaon(kaon) && mHFCuts->isTPCPion(pion) && 
+//  return (mHFCuts->isGoodTrack(kaon) && mHFCuts->isGoodTrack(pion) &&
+  return (mHFCuts->isTPCKaon(kaon) && mHFCuts->isTPCPion(pion) && 
 	  pairCuts);
 }
 
@@ -274,7 +299,9 @@ bool StPicoD0AnaMaker::isD0Pair(StKaonPion const* const kp) const
 
   //  To be replaced by mHFCuts->isGoodSecondaryVertexPair(kp))
   bool pairCuts =  std::cos(kp->pointingAngle()) > 0.995 &&
-    kp->dcaDaughters() < 0.005;
+    kp->dcaDaughters() < 0.005 &&
+    kp->kaonDca()>0.008 && kp->pionDca()>0.008 &&
+    kaon->pMom().perp()>1.2 && pion->pMom().perp()>1.2;
 
   return (mHFCuts->isGoodTrack(kaon) && mHFCuts->isGoodTrack(pion) &&
 	  mHFCuts->isTPCKaon(kaon) && mHFCuts->isTPCPion(pion) && 
@@ -364,7 +391,7 @@ int StPicoD0AnaMaker::primaryVertexRefit(StThreeVectorF *mRefitVertex, vector<in
   return 1;
 }
 
-
+/*
 int StPicoD0AnaMaker::D0Reco(StThreeVectorF *mPVtx) 
 {
 
@@ -389,3 +416,4 @@ int StPicoD0AnaMaker::D0Reco(StThreeVectorF *mPVtx)
    }
 
 }
+*/
