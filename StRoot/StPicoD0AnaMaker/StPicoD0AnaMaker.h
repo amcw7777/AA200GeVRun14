@@ -69,7 +69,7 @@ class StPicoD0AnaMaker : public StMaker
     void readNextEvent();
 
     bool isGoodPair(StKaonPion const*) const;
-    bool isD0Pair(StKaonPion const*) const;
+    int isD0Pair(StKaonPion const*) const;
     int primaryVertexRefit(StThreeVectorF *, vector<int>& daughter);
     int D0Reco(StThreeVectorF *);
 
@@ -91,7 +91,10 @@ class StPicoD0AnaMaker : public StMaker
     // add your member variables here. 
     // Remember that ntuples size can be really big, use histograms where appropriate
 //	//StKFVertexMaker private
-     TNtuple *mRefittuple;
+     TNtuple *mEventtuple;
+     TNtuple *mOrigin;
+     TNtuple *mTest;
+     TNtuple *mRefit;
      TH2F *timemult;
      TH1D *mMult;
      StDcaGeometry *dcaG;

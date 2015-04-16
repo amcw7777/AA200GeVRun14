@@ -101,8 +101,10 @@ Int_t StPicoD0AnaMaker::Init()
    mChain->SetBranchAddress("dEvent", &mPicoD0Event);
 
    mOutputFile = new TFile(mOutFileName.Data(), "RECREATE");
-   mRefittuple = new TNtuple("mRefittuple","mRefittuple","testx:testy:testz:refitx:refity:refitz:prmx:prmy:prmz:mult");
-   timemult = new TH2F("timemult","",100,0,500,100,0,5);
+   mEventtuple = new TNtuple("mEventtuple","mEventtuple","testx:testy:testz:refitx:refity:refitz:prmx:prmy:prmz:mult");
+   mOrigin= new TNtuple("mOrigin","mOrigin","mass:charge:mult");
+   mTest= new TNtuple("mTest","mTest","mass:charge:mult");
+   mRefit= new TNtuple("mRefit","mRefit","mass:charge:mult");
   mDmass_unlike = new TH1D("mDmass_unlike","",500,1.6,2.1);
   mDmass_like = new TH1D("mDmass_like","",500,1.6,2.1);
   mDmasscut_unlike = new TH1D("mDmasscut_unlike","",500,1.6,2.1);
@@ -110,8 +112,6 @@ Int_t StPicoD0AnaMaker::Init()
   mDmasstest_unlike = new TH1D("mDmasstest_unlike","",500,1.6,2.1);
   mDmasstest_like = new TH1D("mDmasstest_like","",500,1.6,2.1);
   mMult = new TH1D("mMult","",500,0,500);
-  mCostheta = new TH1D("mcostheta","",1000,-1,1);
-  mdRkp = new TH1D("mdRkp","",1000,0,0.1);
 
    mOutputFile->cd();
 
@@ -134,18 +134,18 @@ Int_t StPicoD0AnaMaker::Finish()
    LOG_INFO << " StPicoD0AnaMaker - writing data and closing output file " <<endm;
    mOutputFile->cd();
    // save user variables here
-   mRefittuple->Write();
-  // timemult-Write();
+   mEventtuple->Write();
+   mOrigin->Write();
+   mTest->Write();
+   mRefit->Write();
 
   mMult->Write();
-  mDmass_unlike->Write();
-  mDmass_like->Write();
-  mDmasscut_unlike->Write();
-  mDmasscut_like->Write();
-  mDmasstest_unlike->Write();
-  mDmasstest_like->Write();
-  mCostheta ->Write();
-  mdRkp->Write();
+//  mDmass_unlike->Write();
+//  mDmass_like->Write();
+//  mDmasscut_unlike->Write();
+//  mDmasscut_like->Write();
+//  mDmasstest_unlike->Write();
+//  mDmasstest_like->Write();
  
 
  
@@ -230,26 +230,33 @@ Int_t StPicoD0AnaMaker::Make()
       StPicoTrack const* pion = picoDst->track(kp->pionIdx());
       StKaonPion testkp(kaon,pion,kp->kaonIdx(),kp->pionIdx(),testVertex,bField);
       StKaonPion d0kp(kaon,pion,kp->kaonIdx(),kp->pionIdx(),d0Vertex,bField);
+      int charge=0;
+      float mDmass_fill[3];
      
-      if(isD0Pair(kp))
+      if((charge=isD0Pair(kp))!=0)
       {
-        mDmass_like->Fill(kp->m());
-        if(mult<100)
-          mDmass_unlike->Fill(kp->m());
+	cout<<"charge = "<<charge<<endl;
+	mDmass_fill[0]=kp->m();
+	mDmass_fill[1]=charge;
+	mDmass_fill[2]=mult;
+        mOrigin->Fill(mDmass_fill);
+        
       }
    
-      if(isD0Pair(&testkp))
+      if((charge=isD0Pair(&testkp))!=0)
       {
-        mDmasstest_like->Fill(testkp.m());
-        if(mult<100)
-          mDmasstest_unlike->Fill(testkp.m());
+	mDmass_fill[0]=testkp.m();
+	mDmass_fill[1]=charge;
+	mDmass_fill[2]=mult;
+        mTest->Fill(mDmass_fill);
       }
       
-      if(isD0Pair(&d0kp))
+      if((charge=isD0Pair(&d0kp))!=0)
       {
-        mDmasscut_like->Fill(d0kp.m());
-        if(mult<100)
-          mDmasscut_unlike->Fill(d0kp.m());
+	mDmass_fill[0]=d0kp.m();
+	mDmass_fill[1]=charge;
+	mDmass_fill[2]=mult;
+        mRefit->Fill(mDmass_fill);
       }
    }
      
@@ -264,7 +271,7 @@ Int_t StPicoD0AnaMaker::Make()
    refittuple_fill[7] = pVtx.y(); 
    refittuple_fill[8] = pVtx.z(); 
    refittuple_fill[9] = mult; 
-   mRefittuple->Fill(refittuple_fill);
+   mEventtuple->Fill(refittuple_fill);
    return kStOK;
 }
 //-----------------------------------------------------------------------------
@@ -283,14 +290,16 @@ bool StPicoD0AnaMaker::isGoodPair(StKaonPion const* const kp) const
 //    kp->decayLength()  > mHFCuts->cutSecondaryPairDecayLengthMin() && 
 //    kp->decayLength()  < mHFCuts->cutSecondaryPairDecayLengthMax() &&
 //    kp->dcaDaughters() < mHFCuts->cutSecondaryPairDcaDaughtersMax();
-  bool pairCuts = kp->m()>1.6 && kp->m()<2.1;
+  int charge = kaon->charge() * pion->charge();
+  bool pairCuts = kp->m()>1.6 && kp->m()<2.1 &&
+                  charge==-1;
 
 //  return (mHFCuts->isGoodTrack(kaon) && mHFCuts->isGoodTrack(pion) &&
   return (mHFCuts->isTPCKaon(kaon) && mHFCuts->isTPCPion(pion) && 
 	  pairCuts);
 }
 
-bool StPicoD0AnaMaker::isD0Pair(StKaonPion const* const kp) const
+int StPicoD0AnaMaker::isD0Pair(StKaonPion const* const kp) const
 {
   if(!kp) return false;
 
@@ -301,12 +310,15 @@ bool StPicoD0AnaMaker::isD0Pair(StKaonPion const* const kp) const
   bool pairCuts =  std::cos(kp->pointingAngle()) > 0.995 &&
     kp->dcaDaughters() < 0.005 &&
     kp->kaonDca()>0.008 && kp->pionDca()>0.008 &&
-    kaon->pMom().perp()>1.2 && pion->pMom().perp()>1.2;
+    kaon->pMom().perp()>1.0 && pion->pMom().perp()>1.0;
+  int charge = kaon->charge() * pion->charge();
 
-  return (mHFCuts->isGoodTrack(kaon) && mHFCuts->isGoodTrack(pion) &&
+  if(mHFCuts->isGoodTrack(kaon) && mHFCuts->isGoodTrack(pion) &&
 	  mHFCuts->isTPCKaon(kaon) && mHFCuts->isTPCPion(pion) && 
-	  pairCuts
-          );
+	  pairCuts)
+    return charge;
+  else
+    return 0;
 }
 /*
 */
@@ -382,7 +394,7 @@ int StPicoD0AnaMaker::primaryVertexRefit(StThreeVectorF *mRefitVertex, vector<in
 //  delete [] particles;
   for(int i=0;i<N;++i)
   {
-    particles[i]->Clear();
+//    particles[i]->Clear();
     delete particles[i];
   }
 
