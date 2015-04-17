@@ -45,8 +45,10 @@ class TNtuple;
 class StPicoD0Event;
 class StKaonPion;
 class StPicoDstMaker;
-class StHFCuts;
 class StPicoDst;
+class StPicoTrack;
+class StHFCuts;
+
 
 
 class StPicoD0AnaMaker : public StMaker
@@ -72,6 +74,10 @@ class StPicoD0AnaMaker : public StMaker
     int isD0Pair(StKaonPion const*) const;
     int primaryVertexRefit(StThreeVectorF *, vector<int>& daughter);
     int D0Reco(StThreeVectorF *);
+    bool isGoodEvent();
+    bool  isGoodTrack(StPicoTrack const*) const;
+    bool  isPion(StPicoTrack const*) const;
+    bool  isKaon(StPicoTrack const*) const;
 
     StPicoDstMaker* mPicoDstMaker;
     StPicoD0Event* mPicoD0Event;
@@ -98,8 +104,6 @@ class StPicoD0AnaMaker : public StMaker
      TH2F *timemult;
      TH1D *mMult;
      StDcaGeometry *dcaG;
-     StDcaGeometry *kdca;
-     StDcaGeometry *pdca;
      TH1D *mDmass_like;
      TH1D *mDmasscut_like;
      TH1D *mDmasstest_like;
