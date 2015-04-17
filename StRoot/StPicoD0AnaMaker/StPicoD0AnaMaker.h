@@ -98,6 +98,8 @@ class StPicoD0AnaMaker : public StMaker
      TH2F *timemult;
      TH1D *mMult;
      StDcaGeometry *dcaG;
+     StDcaGeometry *kdca;
+     StDcaGeometry *pdca;
      TH1D *mDmass_like;
      TH1D *mDmasscut_like;
      TH1D *mDmasstest_like;

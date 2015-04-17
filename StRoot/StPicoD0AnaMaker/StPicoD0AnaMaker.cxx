@@ -120,6 +120,8 @@ Int_t StPicoD0AnaMaker::Init()
 
    // -------------- USER VARIABLES -------------------------
   dcaG = new StDcaGeometry();
+  kdca = new StDcaGeometry();
+  pdca = new StDcaGeometry();
 
    return kStOK;
 }
@@ -151,6 +153,8 @@ Int_t StPicoD0AnaMaker::Finish()
  
    mOutputFile->Close();
    delete dcaG;
+   delete kdca;
+   delete pdca;
 	
    return kStOK;
 }
@@ -302,16 +306,26 @@ bool StPicoD0AnaMaker::isGoodPair(StKaonPion const* const kp) const
 int StPicoD0AnaMaker::isD0Pair(StKaonPion const* const kp) const
 {
   if(!kp) return false;
+  StPicoEvent *event = (StPicoEvent *)mPicoDstMaker->picoDst()->event();
 
   StPicoTrack const* kaon = mPicoDstMaker->picoDst()->track(kp->kaonIdx());
   StPicoTrack const* pion = mPicoDstMaker->picoDst()->track(kp->pionIdx());
 
+  kdca->set(kaon->params(),kaon->errMatrix());
+  StPhysicalHelixD khelix = kdca->helix();
+  StThreeVectorF kmom = khelix.momentum(event->bField()*kilogauss);
+
+  pdca->set(pion->params(),pion->errMatrix());
+  StPhysicalHelixD phelix = pdca->helix();
+  StThreeVectorF pmom = phelix.momentum(event->bField()*kilogauss);
   //  To be replaced by mHFCuts->isGoodSecondaryVertexPair(kp))
   bool pairCuts =  std::cos(kp->pointingAngle()) > 0.995 &&
     kp->dcaDaughters() < 0.005 &&
     kp->kaonDca()>0.008 && kp->pionDca()>0.008 &&
-    kaon->pMom().perp()>1.0 && pion->pMom().perp()>1.0;
+//    kaon->pMom().perp()>1.0 && pion->pMom().perp()>1.0;
+    sqrt(kmom.x()*kmom.x()+kmom.y()*kmom.y())>1.0 && sqrt(pmom.x()*pmom.x()+pmom.y()*pmom.y())>1.0 ; 
   int charge = kaon->charge() * pion->charge();
+    
 
   if(mHFCuts->isGoodTrack(kaon) && mHFCuts->isGoodTrack(pion) &&
 	  mHFCuts->isTPCKaon(kaon) && mHFCuts->isTPCPion(pion) && 
