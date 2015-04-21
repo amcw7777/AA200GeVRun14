@@ -15,7 +15,7 @@
 #include "Rtypes.h"
 #include <string>
 
-namespace cuts
+namespace mycuts
 {
    extern std::string const prescalesFilesDirectoryName;
    //event
@@ -26,12 +26,14 @@ namespace cuts
    //tracking
    extern int const nHitsFit;
    extern bool const requireHFT;
+   extern float const minPt;
 
    //pions
    extern float const nSigmaPion;
 
    //kaons
    extern float const nSigmaKaon;
+   extern float const kTofBetaDiff;
 
    // tree kaonPion pair cuts
    extern float const cosTheta;
@@ -39,6 +41,8 @@ namespace cuts
    extern float const decayLength;
    extern float const minMass;
    extern float const maxMass;
+   extern float const kDca;
+   extern float const pDca;
 
    // histograms kaonPion pair cuts
    extern float const qaNHitsFit;

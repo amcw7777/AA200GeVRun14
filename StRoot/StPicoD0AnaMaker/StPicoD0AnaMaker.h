@@ -48,6 +48,7 @@ class StPicoDstMaker;
 class StPicoDst;
 class StPicoTrack;
 class StHFCuts;
+class StPicoPrescales;
 
 
 
@@ -76,12 +77,14 @@ class StPicoD0AnaMaker : public StMaker
     int D0Reco(StThreeVectorF *);
     bool isGoodEvent();
     bool  isGoodTrack(StPicoTrack const*) const;
-    bool  isPion(StPicoTrack const*) const;
-    bool  isKaon(StPicoTrack const*) const;
+    bool  isTpcPion(StPicoTrack const*) const;
+    bool  isTpcKaon(StPicoTrack const*,StThreeVectorF const * pVtx) const;
+    bool isTofKaon(StPicoTrack const* const, float beta) const;
+    float getTofBeta(StPicoTrack const*,StThreeVectorF const * pVtx) const;
 
     StPicoDstMaker* mPicoDstMaker;
     StPicoD0Event* mPicoD0Event;
-
+    StPicoPrescales* mPrescales;
     //StPicoDstMaker *
     StPicoDst *picoDst;
 

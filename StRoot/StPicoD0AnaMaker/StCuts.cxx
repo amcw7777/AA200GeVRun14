@@ -11,7 +11,7 @@
 
 #include "StCuts.h"
 
-namespace cuts
+namespace mycuts
 {
    // path to lists of triggers prescales
    // lists are obtained from http://www.star.bnl.gov/protected/common/common2014/trigger2014/plots_au200gev/
@@ -22,18 +22,20 @@ namespace cuts
    float const vzVpdVz = 3.0; // 3 cm.
 
    //tracking
-   int const nHitsFit = 15;
+   int const nHitsFit = 20;
    bool const requireHFT = true;
+   float const minPt = 1.2;
 
    //pions
    float const nSigmaPion = 3.0;
 
    //kaons
-   float const nSigmaKaon = 2.5;
+   float const nSigmaKaon = 2.0;
+   float const kTofBetaDiff = 0.04;
 
    // tree kaonPion pair cuts
-   float const cosTheta = 0; // minimum
-   float const dcaDaughters = 0.0200; // maximum
+   float const cosTheta = 0.995; // minimum
+   float const dcaDaughters = 0.0050; // maximum
    float const decayLength = 0.0030; // minimum
    float const minMass = 1.6;
    float const maxMass = 2.1;
@@ -41,8 +43,6 @@ namespace cuts
    // histograms kaonPion pair cuts
    float const qaNHitsFit = 20;
    float const qaNSigmaKaon = 2.0;
-   float const qaCosTheta = 0.995;
-   float const qaDcaDaughters = 0.0050;
-   float const qaKDca = 0.008; // minimum
-   float const qaPDca = 0.008;
+   float const kDca = 0.008; // minimum
+   float const pDca = 0.008;
 }

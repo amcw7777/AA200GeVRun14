@@ -8,6 +8,8 @@
 #include "TTree.h"
 #include "TNtuple.h"
 
+#include "phys_constants.h"
+#include "StBTofUtil/tofPathLength.hh"
 #include "StPicoDstMaker/StPicoDstMaker.h"
 #include "StPicoDstMaker/StPicoDst.h"
 #include "StPicoDstMaker/StPicoEvent.h"
@@ -16,7 +18,9 @@
 #include "StPicoD0EventMaker/StKaonPion.h"
 #include "StPicoD0AnaMaker.h"
 #include "StPicoHFMaker/StHFCuts.h"
+#include "StPicoDstMaker/StPicoBTofPidTraits.h"
 #include "StCuts.h"
+#include "../StPicoPrescales/StPicoPrescales.h"
 //////Refit include lib
 #include "PhysicalConstants.h"
 #include "StThreeVectorF.hh"
@@ -98,6 +102,9 @@ Int_t StPicoD0AnaMaker::Init()
       return kStErr;
    }
 
+   mPrescales = new StPicoPrescales(mycuts::prescalesFilesDirectoryName);
+   int nRuns = mPrescales->numberOfRuns();
+
    mChain->GetBranch("dEvent")->SetAutoDelete(kFALSE);
    mChain->SetBranchAddress("dEvent", &mPicoD0Event);
 
@@ -106,7 +113,7 @@ Int_t StPicoD0AnaMaker::Init()
    mOrigin= new TNtuple("mOrigin","mOrigin","mass:charge:mult");
    mTest= new TNtuple("mTest","mTest","mass:charge:mult");
    mRefit= new TNtuple("mRefit","mRefit","mass:charge:mult");
-  mDmass_unlike = new TH1D("mDmass_unlike","",500,1.6,2.1);
+  mDmass_unlike = new TH1D("mDmass_unlike","",50,1.6,2.1);
   mDmass_like = new TH1D("mDmass_like","",500,1.6,2.1);
   mDmasscut_unlike = new TH1D("mDmasscut_unlike","",500,1.6,2.1);
   mDmasscut_like = new TH1D("mDmasscut_like","",500,1.6,2.1);
@@ -152,6 +159,7 @@ Int_t StPicoD0AnaMaker::Finish()
  
    mOutputFile->Close();
    delete dcaG;
+   delete mPrescales;
 	
    return kStOK;
 }
@@ -167,6 +175,7 @@ Int_t StPicoD0AnaMaker::Make()
 
    //StPicoDst const* picoDst = mPicoDstMaker->picoDst();
    picoDst = mPicoDstMaker->picoDst();
+   clock_t t1,t2;
 
    if (!picoDst)
    {
@@ -190,16 +199,11 @@ Int_t StPicoD0AnaMaker::Make()
    StThreeVectorF d0Vertex(-999.,-999.,-999.);
    //StThreeVectorF Vertex(-999.,-999.,-999.);
    StPicoEvent *event = (StPicoEvent *)picoDst->event();
-   if(!(event->isMinBias()))
-   {
-     LOG_WARN << " Not Min Bias! Skip! " << endm;
-     return kStWarn;
-   }
 //   int aEventStat[mHFCuts->eventStatMax()];
 //   if(!(mHFCuts->isGoodEvent(event,aEventStat)))
    if(!(isGoodEvent()))
    {
-     LOG_WARN << " Not Good Event! Skip! " << endm;
+//     LOG_WARN << " Not Good Event! Skip! " << endm;
      return kStWarn;
    }
    float mult = event->refMult();
@@ -223,8 +227,9 @@ Int_t StPicoD0AnaMaker::Make()
       daughter.push_back(kp->pionIdx());
    }
 
+   t1 = clock();
    primaryVertexRefit(&d0Vertex,daughter);//Refit d0Vertex removing D0 daughters
- //  D0Reco(&pVtx);
+   t2 = clock();
    for (int idx = 0; idx < aKaonPion->GetEntries(); ++idx)
    {
       StKaonPion const* kp = (StKaonPion*)aKaonPion->At(idx);
@@ -232,12 +237,14 @@ Int_t StPicoD0AnaMaker::Make()
       StPicoTrack const* pion = picoDst->track(kp->pionIdx());
       StKaonPion testkp(kaon,pion,kp->kaonIdx(),kp->pionIdx(),testVertex,bField);
       StKaonPion d0kp(kaon,pion,kp->kaonIdx(),kp->pionIdx(),d0Vertex,bField);
+
+      if (!isGoodTrack(kaon) || !isGoodTrack(pion)) continue;
+      if (!isTpcPion(pion)) continue;
       int charge=0;
       float mDmass_fill[3];
      
-      if((charge=isD0Pair(kp))!=0)
+      if((charge=isD0Pair(kp))!=0 && isTpcKaon(kaon,&pVtx))
       {
-	cout<<"charge = "<<charge<<endl;
 	mDmass_fill[0]=kp->m();
 	mDmass_fill[1]=charge;
 	mDmass_fill[2]=mult;
@@ -245,7 +252,7 @@ Int_t StPicoD0AnaMaker::Make()
         
       }
    
-      if((charge=isD0Pair(&testkp))!=0)
+      if((charge=isD0Pair(&testkp))!=0 && isTpcKaon(kaon,&testVertex))
       {
 	mDmass_fill[0]=testkp.m();
 	mDmass_fill[1]=charge;
@@ -253,7 +260,7 @@ Int_t StPicoD0AnaMaker::Make()
         mTest->Fill(mDmass_fill);
       }
       
-      if((charge=isD0Pair(&d0kp))!=0)
+      if((charge=isD0Pair(&d0kp))!=0 && isTpcKaon(kaon,&d0Vertex))
       {
 	mDmass_fill[0]=d0kp.m();
 	mDmass_fill[1]=charge;
@@ -271,6 +278,7 @@ Int_t StPicoD0AnaMaker::Make()
    refittuple_fill[5] = d0Vertex.z(); 
    refittuple_fill[6] = pVtx.x(); 
    refittuple_fill[7] = pVtx.y(); 
+   double dtime = (double)(t2- t1) / CLOCKS_PER_SEC;
    refittuple_fill[8] = pVtx.z(); 
    refittuple_fill[9] = mult; 
    mEventtuple->Fill(refittuple_fill);
@@ -285,39 +293,30 @@ bool StPicoD0AnaMaker::isGoodPair(StKaonPion const* const kp) const
   StPicoTrack const* kaon = mPicoDstMaker->picoDst()->track(kp->kaonIdx());
   StPicoTrack const* pion = mPicoDstMaker->picoDst()->track(kp->pionIdx());
 
-  //  To be replaced by mHFCuts->isGoodSecondaryVertexPair(kp))
-//  bool pairCuts = kp->m() > mHFCuts->cutSecondaryPairMassMin() && 
-//    kp->m() < mHFCuts->cutSecondaryPairMassMax() &&
-//    std::cos(kp->pointingAngle()) > mHFCuts->cutSecondaryPairCosThetaMin() &&
-//    kp->decayLength()  > mHFCuts->cutSecondaryPairDecayLengthMin() && 
-//    kp->decayLength()  < mHFCuts->cutSecondaryPairDecayLengthMax() &&
-//    kp->dcaDaughters() < mHFCuts->cutSecondaryPairDcaDaughtersMax();
+  StPicoEvent *event = (StPicoEvent *)picoDst->event();
+  StThreeVectorF pVtx(-999.,-999.,-999.);
+  pVtx = event->primaryVertex();
   int charge = kaon->charge() * pion->charge();
   bool pairCuts = kp->m()>1.6 && kp->m()<2.1 &&
                   charge==-1;
 
-//  return (mHFCuts->isGoodTrack(kaon) && mHFCuts->isGoodTrack(pion) &&
-  return (isKaon(kaon) && isPion(pion) && 
+  return (isTpcKaon(kaon,&pVtx) && isTpcPion(pion) && 
 	  pairCuts);
 }
 
+
 int StPicoD0AnaMaker::isD0Pair(StKaonPion const* const kp) const
 {
-  if(!kp) return false;
 
-  StPicoTrack const* kaon = mPicoDstMaker->picoDst()->track(kp->kaonIdx());
-  StPicoTrack const* pion = mPicoDstMaker->picoDst()->track(kp->pionIdx());
-
-  bool pairCuts =  std::cos(kp->pointingAngle()) > 0.995 &&
-    kp->dcaDaughters() < 0.005 &&
-    kp->kaonDca()>0.008 && kp->pionDca()>0.008 &&
-    kaon->gPt()>1.0 && pion->gPt()>1.0;
+  StPicoTrack const* kaon = picoDst->track(kp->kaonIdx());
+  StPicoTrack const* pion = picoDst->track(kp->pionIdx());
+  bool pairCuts =  cos(kp->pointingAngle()) > mycuts::cosTheta &&
+          kp->pionDca() > mycuts::pDca && kp->kaonDca() > mycuts::kDca &&
+          kp->dcaDaughters() < mycuts::dcaDaughters;
   int charge = kaon->charge() * pion->charge();
     
 
-  if(isGoodTrack(kaon) && isGoodTrack(pion) &&
-	  isKaon(kaon) && isPion(pion) && 
-	  pairCuts)
+  if(pairCuts)
     return charge;
   else
     return 0;
@@ -409,9 +408,10 @@ int StPicoD0AnaMaker::primaryVertexRefit(StThreeVectorF *mRefitVertex, vector<in
 bool StPicoD0AnaMaker::isGoodEvent()
 {
    StPicoEvent *event = (StPicoEvent *)picoDst->event();
-   return (event->triggerWord() & cuts::triggerWord) &&
-           fabs(event->primaryVertex().z()) < cuts::vz &&
-         fabs(event->primaryVertex().z() - event->vzVpd()) < cuts::vzVpdVz;
+//   return (event->triggerWord() & mycuts::triggerWord) &&
+//           fabs(event->primaryVertex().z()) < mycuts::vz &&
+//         fabs(event->primaryVertex().z() - event->vzVpd()) < mycuts::vzVpdVz;
+  return event->triggerWord() & mycuts::triggerWord;
 }
 //-----------------------------------------------------------------------------
 bool StPicoD0AnaMaker::isGoodTrack(StPicoTrack const * const trk) const
@@ -419,18 +419,70 @@ bool StPicoD0AnaMaker::isGoodTrack(StPicoTrack const * const trk) const
    // Require at least one hit on every layer of PXL and IST.
    // It is done here for tests on the preview II data.
    // The new StPicoTrack which is used in official production has a method to check this
-   return (!cuts::requireHFT || trk->isHFTTrack()) && 
-          trk->nHitsFit() >= cuts::nHitsFit;
+   return trk->gPt() > mycuts::minPt && trk->nHitsFit() >= mycuts::nHitsFit;
 }
 //-----------------------------------------------------------------------------
-bool StPicoD0AnaMaker::isPion(StPicoTrack const * const trk) const
+bool StPicoD0AnaMaker::isTpcPion(StPicoTrack const * const trk) const
 {
-   return fabs(trk->nSigmaPion()) < cuts::nSigmaPion;
+   return fabs(trk->nSigmaPion()) < mycuts::nSigmaPion;
 }
 //-----------------------------------------------------------------------------
-bool StPicoD0AnaMaker::isKaon(StPicoTrack const * const trk) const
+bool StPicoD0AnaMaker::isTpcKaon(StPicoTrack const * const trk, StThreeVectorF const* const pVtx) const
 {
-   return fabs(trk->nSigmaKaon()) < cuts::nSigmaKaon;
+  float kBeta = getTofBeta(trk,pVtx);
+  bool tofAvailable = kBeta>0;
+  bool tofKaon = tofAvailable && isTofKaon(trk,kBeta);
+   return fabs(trk->nSigmaKaon()) < mycuts::nSigmaKaon
+           || tofKaon;
+}
+//-----------------------------------------------------------------------------
+float StPicoD0AnaMaker::getTofBeta(StPicoTrack const * const trk, StThreeVectorF const* const pVtx) const
+{
+   StPhysicalHelixD helix = trk->helix();
+
+   int index2tof = trk->bTofPidTraitsIndex();
+
+   float beta = std::numeric_limits<float>::quiet_NaN();
+
+   if(index2tof >= 0)
+   {
+      StPicoBTofPidTraits *tofPid = mPicoDstMaker->picoDst()->btofPidTraits(index2tof);
+
+      if(tofPid)
+      {
+         beta = tofPid->btofBeta();
+
+         if (beta < 1e-4)
+         {
+            StThreeVectorF const btofHitPos = tofPid->btofHitPos();
+
+            float L = tofPathLength(pVtx, &btofHitPos, helix.curvature());
+            float tof = tofPid->btof();
+            if (tof > 0) beta = L / (tof * (C_C_LIGHT / 1.e9));
+            else beta = std::numeric_limits<float>::quiet_NaN();
+         }
+         else
+         {
+           beta = std::numeric_limits<float>::quiet_NaN();
+         }
+      }
+   }
+
+   return beta;
+}
+//-----------------------------------------------------------------------------
+bool StPicoD0AnaMaker::isTofKaon(StPicoTrack const * const trk, float beta) const
+{
+   bool tofKaon = false;
+
+   if(beta>0)
+   {
+     double ptot = trk->dcaGeometry().momentum().mag();
+     float beta_k = ptot/sqrt(ptot*ptot+M_KAON_PLUS*M_KAON_PLUS);
+     tofKaon = fabs(1/beta - 1/beta_k) < mycuts::kTofBetaDiff ? true : false;
+   }
+   
+   return tofKaon;
 }
 
 
