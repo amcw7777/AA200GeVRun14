@@ -15,6 +15,7 @@
  * **************************************************
  */
 
+#include <vector>
 #include "TChain.h"
 #include "StMaker.h"
 //
@@ -31,6 +32,7 @@
 class StPrimaryVertex; 
 class StEvent;
 class StDcaGeometry; 
+class TMinuit;
 class KFParticle; 
 class StKFVerticesCollection; 
 class StKFVertexMaker;
@@ -122,7 +124,19 @@ class StPicoD0AnaMaker : public StMaker
      TH1D *mCostheta;
      TH1D *mdRkp;
 //
-
+    
+    // variables to do Minuit vertex fit
+    static vector<StDcaGeometry>   mDCAs;
+    static vector<StPhysicalHelixD> mHelices;
+    static vector<UShort_t>         mHelixFlags;
+    static vector<Double_t>         mSigma;
+    static vector<Double_t>         mZImpact;
+    Int_t                  mNSeed;
+        
+    static Double_t                 mWidthScale;
+    Int_t                    mStatusMin;           // Minuit status flag 
+    TMinuit*                 mMinuit;
+ 
     ClassDef(StPicoD0AnaMaker, 1)
 };
 

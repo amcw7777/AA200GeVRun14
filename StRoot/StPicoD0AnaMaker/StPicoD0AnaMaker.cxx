@@ -73,6 +73,13 @@
 #include <stdio.h>
 #include <time.h>
 
+vector<StDcaGeometry>     StMyAnalysisMaker::mDCAs;
+vector<StPhysicalHelixD>   StMyAnalysisMaker::mHelices;
+vector<UShort_t>           StMyAnalysisMaker::mHelixFlags;
+vector<Double_t >          StMyAnalysisMaker::mSigma;
+vector<Double_t >          StMyAnalysisMaker::mZImpact;
+Double_t                   StMyAnalysisMaker::mWidthScale = 1;
+
 ClassImp(StPicoD0AnaMaker)
 
 StPicoD0AnaMaker::StPicoD0AnaMaker(char const * name,char const * inputFilesList, 
@@ -128,6 +135,12 @@ Int_t StPicoD0AnaMaker::Init()
 
    // -------------- USER VARIABLES -------------------------
   dcaG = new StDcaGeometry();
+  
+  mMinuit = new TMinuit(3);         
+  mMinuit->SetFCN(&StMyAnalysisMaker::fcn);
+  mMinuit->SetPrintLevel(-1);
+  mMinuit->SetMaxIterations(1000);
+
 
    return kStOK;
 }
@@ -487,6 +500,9 @@ bool StPicoD0AnaMaker::isTofKaon(StPicoTrack const * const trk, float beta) cons
 //------------ Lines below are from Xin Dong's code to do Mnuit vertex fit -------------------------------
 StThreeVectorD StPicoD0AnaMaker::vtxReFit(StPicoDst *picoDst)
 {
+    mNSeed = 0;
+    mStatusMin = 0;
+
     Double_t arglist[4];
 
     mDCAs.clear();
