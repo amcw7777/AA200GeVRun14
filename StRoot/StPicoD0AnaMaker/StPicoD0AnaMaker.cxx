@@ -138,7 +138,7 @@ Int_t StPicoD0AnaMaker::Init()
   dcaG = new StDcaGeometry();
   
   mMinuit = new TMinuit(3);         
-  mMinuit->SetFCN(&StMyAnalysisMaker::fcn);
+  mMinuit->SetFCN(&StPicoD0AnaMaker::fcn);
   mMinuit->SetPrintLevel(-1);
   mMinuit->SetMaxIterations(1000);
 
@@ -585,7 +585,7 @@ StThreeVectorD StPicoD0AnaMaker::vtxReFit(StPicoDst *picoDst)
           mHelixFlags[i] &= ~kFlagDcaz;
       }
 
-      if (n_trk_vtx < mMinTrack) {
+      if (n_trk_vtx < mycuts::mMinTrack) {
         LOG_INFO << "Less than mMinTrack (=" << mMinTrack << ") tracks, skipping vtx" << endm;
         continue;
       }
@@ -633,7 +633,7 @@ StThreeVectorD StPicoD0AnaMaker::vtxReFit(StPicoDst *picoDst)
 
     StThreeVectorD XVertex(0.,0.,0.);
 
-    if (n_trk_vtx < mMinTrack)
+    if (n_trk_vtx < mycuts::mMinTrack)
       return XVertex;
 
     if (!done) {
