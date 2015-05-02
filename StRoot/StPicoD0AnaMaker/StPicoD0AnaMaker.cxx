@@ -64,6 +64,7 @@
 //#include "StiMaker/StiStEventFiller.h"
 #include "TRMatrix.h"
 #include "TRSymMatrix.h"
+#include "TMinuit.h"
 
 #include "Sti/StiToolkit.h"
 #include "TArrayI.h"
@@ -73,12 +74,12 @@
 #include <stdio.h>
 #include <time.h>
 
-vector<StDcaGeometry>     StMyAnalysisMaker::mDCAs;
-vector<StPhysicalHelixD>   StMyAnalysisMaker::mHelices;
-vector<UShort_t>           StMyAnalysisMaker::mHelixFlags;
-vector<Double_t >          StMyAnalysisMaker::mSigma;
-vector<Double_t >          StMyAnalysisMaker::mZImpact;
-Double_t                   StMyAnalysisMaker::mWidthScale = 1;
+vector<StDcaGeometry>     StPicoD0AnaMaker::mDCAs;
+vector<StPhysicalHelixD>   StPicoD0AnaMaker::mHelices;
+vector<UShort_t>           StPicoD0AnaMaker::mHelixFlags;
+vector<Double_t >          StPicoD0AnaMaker::mSigma;
+vector<Double_t >          StPicoD0AnaMaker::mZImpact;
+Double_t                   StPicoD0AnaMaker::mWidthScale = 1;
 
 ClassImp(StPicoD0AnaMaker)
 

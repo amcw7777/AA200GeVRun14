@@ -126,6 +126,7 @@ class StPicoD0AnaMaker : public StMaker
 //
     
     // variables to do Minuit vertex fit
+    enum  {kFlagDcaz = 1, kFlagCTBMatch = 2, kFlagBEMCMatch = 4, kFlagCrossMembrane = 8};
     static vector<StDcaGeometry>   mDCAs;
     static vector<StPhysicalHelixD> mHelices;
     static vector<UShort_t>         mHelixFlags;
