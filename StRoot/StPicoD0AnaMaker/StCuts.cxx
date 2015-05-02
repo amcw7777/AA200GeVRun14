@@ -45,4 +45,10 @@ namespace mycuts
    float const qaNSigmaKaon = 2.0;
    float const kDca = 0.008; // minimum
    float const pDca = 0.008;
+
+   // Minuit vertex fitter paramters
+   int const mMinNumberOfFitPointsOnTrack = 20;
+   float const mDcaZMax = 3.0;
+   int const mMinTrack = 2;
+   float const mRImpactMax = 2.0;
 }

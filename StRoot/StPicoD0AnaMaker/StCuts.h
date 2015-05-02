@@ -51,5 +51,11 @@ namespace mycuts
    extern float const qaDcaDaughters;
    extern float const qaKDca;
    extern float const qaPDca;
+
+   // Minuit vertex fitter paramters
+   extern int const mMinNumberOfFitPointsOnTrack;
+   extern float const mDcaZMax;
+   extern int const mMinTrack;
+   extern float const mRImpactMax;
 }
 #endif

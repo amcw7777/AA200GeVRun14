@@ -15,6 +15,7 @@
  * **************************************************
  */
 
+#include <vector>
 #include "TChain.h"
 #include "StMaker.h"
 //
@@ -31,6 +32,7 @@
 class StPrimaryVertex; 
 class StEvent;
 class StDcaGeometry; 
+class TMinuit;
 class KFParticle; 
 class StKFVerticesCollection; 
 class StKFVertexMaker;
@@ -82,6 +84,12 @@ class StPicoD0AnaMaker : public StMaker
     bool isTofKaon(StPicoTrack const* const, float beta) const;
     float getTofBeta(StPicoTrack const*,StThreeVectorF const * pVtx) const;
 
+    // Code from Xin Dong to do Minuit vertex fit
+    StThreeVectorD vtxReFit(StPicoDst*);
+    bool    accept(StPicoTrack*) const;   // track filter
+    static void fcn(Int_t&, Double_t*, Double_t&, Double_t*, Int_t); // fit function
+    static Double_t Chi2atVertex(StThreeVectorD &vtx);
+
     StPicoDstMaker* mPicoDstMaker;
     StPicoD0Event* mPicoD0Event;
     StPicoPrescales* mPrescales;
@@ -116,7 +124,20 @@ class StPicoD0AnaMaker : public StMaker
      TH1D *mCostheta;
      TH1D *mdRkp;
 //
-
+    
+    // variables to do Minuit vertex fit
+    enum  {kFlagDcaz = 1, kFlagCTBMatch = 2, kFlagBEMCMatch = 4, kFlagCrossMembrane = 8};
+    static vector<StDcaGeometry>   mDCAs;
+    static vector<StPhysicalHelixD> mHelices;
+    static vector<UShort_t>         mHelixFlags;
+    static vector<Double_t>         mSigma;
+    static vector<Double_t>         mZImpact;
+    Int_t                  mNSeed;
+        
+    static Double_t                 mWidthScale;
+    Int_t                    mStatusMin;           // Minuit status flag 
+    TMinuit*                 mMinuit;
+ 
     ClassDef(StPicoD0AnaMaker, 1)
 };
 
