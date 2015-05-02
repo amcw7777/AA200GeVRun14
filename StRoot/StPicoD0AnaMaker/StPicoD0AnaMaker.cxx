@@ -484,5 +484,205 @@ bool StPicoD0AnaMaker::isTofKaon(StPicoTrack const * const trk, float beta) cons
    
    return tofKaon;
 }
+//------------ Lines below are from Xin Dong's code to do Mnuit vertex fit -------------------------------
+StThreeVectorD StPicoD0AnaMaker::vtxReFit(StPicoDst *picoDst)
+{
+    Double_t arglist[4];
 
+    mDCAs.clear();
+    mHelices.clear();
+    mHelixFlags.clear();
+    mSigma.clear();
+    mZImpact.clear();
 
+    Int_t nTracks = picoDst->numberOfTracks();
+    for(UInt_t k=0;k<nTracks;k++) {
+      StPicoTrack* g = ( StPicoTrack*)picoDst->track(k);
+      if (accept(g)) {
+        mWidthScale = 0.1;// 1./TMath::Sqrt(5.);
+        StDcaGeometry gDCA = g->dcaGeometry();
+        // if (TMath::Abs(gDCA.impact()) >  mycuts::mRImpactMax) continue; // commented it out by Mustafa
+        mDCAs.push_back(gDCA);
+        StPhysicalHelixD helix = gDCA.helix();
+        mHelices.push_back(helix);
+        mHelixFlags.push_back(1);
+        Double_t z_lin = gDCA.z();
+        mZImpact.push_back(z_lin);
+        mSigma.push_back(-1);
+      }
+    }
+
+    if (mHelices.empty()) {
+        LOG_WARN << "StPicoD0AnaMaker::fit: no tracks to fit." << endm;
+        mStatusMin = -1;
+        return 0;
+    }
+    LOG_INFO << "StPicoD0AnaMaker::fit size of helix vector: " << mHelices.size() << endm;
+    
+    //
+    //  Reset and clear Minuit parameters
+    // mStatusMin
+    mMinuit->mnexcm("CLEar", 0, 0, mStatusMin);
+
+    //
+    //  Set parameters and start values. We do
+    //  constrain the parameters since it harms
+    //  the fit quality (see Minuit documentation).
+    //
+    // Initialize the seed with a z value which is not one of the discrete
+    // values which it can tend to, implies zero not allowed.
+    // Also need different initialization when vertex constraint.
+
+    static Double_t step[3] = {0.03, 0.03, 0.03};
+
+    //
+    //  Scan z to find best seed for the actual fit.
+    //  Skip this step if an external seed is given.
+    //
+    mNSeed = 1;  // use primary vertex as the seed
+
+    mMinuit->mnexcm("CLEar", 0, 0, mStatusMin);
+
+    Double_t seed_z = picoDst->event()->primaryVertex().z();
+
+    mMinuit->mnparm(0, "x", 0, step[0], 0, 0, mStatusMin);
+    mMinuit->mnparm(1, "y", 0, step[1], 0, 0, mStatusMin);
+    mMinuit->mnparm(2, "z", seed_z, step[2], 0, 0, mStatusMin);
+
+    Int_t done = 0;
+    Int_t iter = 0;
+    Double_t chisquare = 0;
+
+    Int_t n_trk_vtx = 0;
+    Int_t n_helix = mHelices.size();
+    do {
+      // For most vertices one pass is fine, but multiple passes
+      // can be done
+      n_trk_vtx = 0;
+      for (Int_t i=0; i < n_helix; i++) {
+        if (fabs(mZImpact[i]-seed_z) < mycuts::mDcaZMax) {
+          mHelixFlags[i] |= kFlagDcaz;
+          n_trk_vtx++;
+        }
+        else
+          mHelixFlags[i] &= ~kFlagDcaz;
+      }
+
+      if (n_trk_vtx < mMinTrack) {
+        LOG_INFO << "Less than mMinTrack (=" << mMinTrack << ") tracks, skipping vtx" << endm;
+        continue;
+      }
+      mMinuit->mnexcm("MINImize", 0, 0, mStatusMin);
+      done = 1;
+
+      //
+      //  Check fit result
+      //
+
+      if (mStatusMin) {
+        LOG_WARN << "StPicoD0AnaMaker::fit: error in Minuit::mnexcm(), check status flag. ( iter=" << iter << endm;
+        done = 0; // refit
+      }
+
+      Double_t fedm, errdef;
+      Int_t npari, nparx;
+
+      mMinuit->mnstat(chisquare, fedm, errdef, npari, nparx, mStatusMin);
+
+      if (mStatusMin != 3) {
+        LOG_INFO << "Warning: Minuit Status: " << mStatusMin << ", func val " << chisquare<< endm;
+        done = 0;  // refit
+      }
+      mMinuit->mnhess();
+
+      Double_t new_z, zerr;
+      mMinuit->GetParameter(2, new_z, zerr);
+
+      if (fabs(new_z - seed_z) > 1) // refit if vertex shifted
+        done = 0;
+
+      Int_t n_trk = 0;
+      for (Int_t i=0; i < n_helix; i++) {
+        if ( fabs(mZImpact[i] - new_z) < mycuts::mDcaZMax ) {
+          n_trk++;
+        }
+      }
+      if ( 10 * abs(n_trk - n_trk_vtx) >= n_trk_vtx ) // refit if number of track changed by more than 10%
+        done = 0;
+
+      iter++;
+      seed_z = new_z; // seed for next iteration
+    } while (!done && iter < 5 && n_trk_vtx >= mycuts::mMinTrack);
+
+    StThreeVectorD XVertex(0.,0.,0.);
+
+    if (n_trk_vtx < mMinTrack)
+      return XVertex;
+
+    if (!done) {
+      LOG_WARN << "Vertex unstable: no convergence after " << iter << " iterations. Skipping vertex " << endm;
+      return XVertex;
+    }
+
+    // Store vertex
+    Float_t cov[6];
+    memset(cov,0,sizeof(cov));
+
+    Double_t val, verr;
+      XVertex = StThreeVectorD(mMinuit->fU[0],mMinuit->fU[1],mMinuit->fU[2]);
+      Double_t emat[9];
+      /* 0 1 2
+         3 4 5
+         6 7 8 */
+      mMinuit->mnemat(emat,3);
+      cov[0] = emat[0];
+      cov[1] = emat[3];
+      cov[2] = emat[4];
+      cov[3] = emat[6];
+      cov[4] = emat[7];
+      cov[5] = emat[8];
+
+    return XVertex;
+    
+}
+//-----------------------------------------------------------------------------
+Double_t StPicoD0AnaMaker::Chi2atVertex(StThreeVectorD &vtx) 
+{
+static Int_t nCall=0; nCall++;
+  Double_t f = 0;
+  Double_t e;
+  if (fabs(vtx.x())> 10) return 1e6;
+  if (fabs(vtx.y())> 10) return 1e6;
+  if (fabs(vtx.z())>300) return 1e6;
+  for (UInt_t i=0; i<mDCAs.size(); i++) {
+    if (mHelixFlags[i] & kFlagDcaz) {
+      const StDcaGeometry gDCA = mDCAs[i];
+//      if (! gDCA) continue;
+      const StPhysicalHelixD helix = gDCA.helix();
+      e = helix.distance(vtx, kFALSE);  // false: don't do multiple loops
+      //VP version
+      //VP      Double_t chi2     = e*e/(errMatrix[0] + errMatrix[2]);
+      static Int_t nCall=0;
+      nCall++;
+      Double_t err2;
+      Double_t chi2 = gDCA.thelix().Dca(&(vtx.x()),&err2);
+      chi2*=chi2/err2;
+      //EndVP
+      Double_t scale = 1./(mWidthScale*mWidthScale);
+      f += scale*(1. - TMath::Exp(-chi2/scale)); // robust potential
+      //        f -= scale*TMath::Exp(-chi2/scale); // robust potential
+    }
+  }
+  return f;
+}
+//-----------------------------------------------------------------------------
+void StPicoD0AnaMaker::fcn(int& npar, double* gin, double& f, double* par, Int_t iflag)
+{
+  StThreeVectorD vtx(par);
+  f = Chi2atVertex(vtx);
+}
+//-----------------------------------------------------------------------------
+bool StPicoD0AnaMaker::accept(StPicoTrack* t) const
+{
+  return t;
+}
