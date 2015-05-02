@@ -586,7 +586,7 @@ StThreeVectorD StPicoD0AnaMaker::vtxReFit(StPicoDst *picoDst)
       }
 
       if (n_trk_vtx < mycuts::mMinTrack) {
-        LOG_INFO << "Less than mMinTrack (=" << mMinTrack << ") tracks, skipping vtx" << endm;
+        LOG_INFO << "Less than mMinTrack (=" << mycuts::mMinTrack << ") tracks, skipping vtx" << endm;
         continue;
       }
       mMinuit->mnexcm("MINImize", 0, 0, mStatusMin);
