@@ -78,7 +78,7 @@ class StPicoD0AnaMaker : public StMaker
     bool getCorHadron(float eta, vector<float> &hadronsPhi);
     float sumCos(float phi, vector<float> &hadronsPhi);
     bool fixPhi(vector<float> &phi);
-    float getHadronCorV2();
+    bool getHadronCorV2();
     float getD0CorV2(int *sumPair, vector<const StKaonPion *> cand);
 
     StPicoDstMaker* mPicoDstMaker;
@@ -99,6 +99,8 @@ class StPicoD0AnaMaker : public StMaker
     // add your member variables here. 
     // Remember that ntuples size can be really big, use histograms where appropriate
     TNtuple *mEventTuple;
+		TNtuple *mDTuple;
+		TNtuple *mHadronTuple;
 
     ClassDef(StPicoD0AnaMaker, 1)
 };

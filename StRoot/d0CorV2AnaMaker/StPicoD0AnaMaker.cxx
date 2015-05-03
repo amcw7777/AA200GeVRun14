@@ -71,6 +71,8 @@ Int_t StPicoD0AnaMaker::Init()
 
    mOutputFile = new TFile(mOutFileName.Data(), "RECREATE");
    mEventTuple = new TNtuple("mEventTuple","","v2Hadron:sumCosCond:sumPairCon:sumCosBkg:mult");
+	 mDTuple = new TNtuple("mDTuple","","phi:cosHadron:sinHadron:sumHadron:pT:mass:sign:eta");
+   mHadronTuple = new TNtuple("mHadronTuple","","sum1:sin1:cos1:sum2:sin2:cos2");
    mOutputFile->cd();
 
 //   if (!mHFCuts)
@@ -92,6 +94,8 @@ Int_t StPicoD0AnaMaker::Finish()
    mOutputFile->cd();
    // save user variables here
    mEventTuple->Write();
+	 mDTuple->Write();
+	 mHadronTuple->Write();
  
    mOutputFile->Close();
    delete mPrescales;
@@ -155,23 +159,37 @@ Int_t StPicoD0AnaMaker::Make()
       if (!isGoodTrack(kaon) || !isGoodTrack(pion)) continue;
       if (!isTpcPion(pion)) continue;
       int charge=0;
-     
+    	
+			float d0Fill[10] = {0}; 
       if((charge=isD0Pair(kp))!=0 && isTpcKaon(kaon,&pVtx))
       {
-        if(charge<0)
-          signal.push_back(kp);
-        if(charge>0)
-          bkg.push_back(kp);
+				float d0Phi = kp->phi();
+				float d0Eta = kp->eta();
+				d0Fill[0] = d0Phi; 
+				vector<float> hadronPhi;
+				getCorHadron(d0Eta,hadronPhi);
+			  int sumHadron = hadronPhi.size();
+				float cosHadron = 0;
+				float sinHadron = 0;
+				for(int ih=0; ih<sumHadron; ih++)
+				{
+					cosHadron += cos(2*hadronPhi[ih]);			
+					sinHadron += sin(2*hadronPhi[ih]);			
+				}
+				d0Fill[1] = cosHadron;
+				d0Fill[2] = sinHadron;
+				d0Fill[3] = sumHadron;
+				d0Fill[4] = kp->pt();
+				d0Fill[5] = kp->m();
+				d0Fill[6] = charge;
+				d0Fill[7] = kp->eta();
       }
+			mDTuple->Fill(d0Fill);
    
    }
+	 getHadronCorV2();
    float mEventFill[5];
-   mEventFill[0] = getHadronCorV2();
-   int sumCondPair = 0;
-   mEventFill[1] = getD0CorV2(&sumCondPair,signal);
-   mEventFill[2] = sumCondPair;
-   mEventFill[3] = getD0CorV2(&sumCondPair,bkg);
-   mEventFill[4] = event->refMult();
+	 
    mEventTuple->Fill(mEventFill);
      
    return kStOK;
@@ -315,7 +333,7 @@ bool StPicoD0AnaMaker::getCorHadron(float eta,vector<float> &hadronsPhi)
     if(dEta< mycuts::corDetaMin || dEta>mycuts::corDetaMax)  continue;
     hadronsPhi.push_back(hadron->pMom().phi());
   }
-  fixPhi(hadronsPhi);
+//  fixPhi(hadronsPhi);
   return true;
   
 }
@@ -343,35 +361,30 @@ bool StPicoD0AnaMaker::fixPhi(vector<float> &phi)
 }
 
   
-float StPicoD0AnaMaker::getHadronCorV2()
+bool StPicoD0AnaMaker::getHadronCorV2()
 {
-  int sumHadronPair = 0;
-  float sumCosPair = 0;
-  vector<float> hadron1Phi;
-  vector<float> hadron1Eta;
-  vector<float> hadron2Phi;
-  hadron1Phi.clear();
-  hadron1Eta.clear();
-  hadron2Phi.clear();
+	float hadronFill[6] = {0};
   for(unsigned int i=0;i<picoDst->numberOfTracks();++i)
   {
-    StPicoTrack const* hadron1 = picoDst->track(i);
-    if(!isGoodHadron(hadron1)) continue;
-    if(hadron1->pMom().pseudoRapidity()>-0.5) continue;//
-    hadron1Phi.push_back(hadron1->pMom().phi());
-    hadron1Eta.push_back(hadron1->pMom().pseudoRapidity());
+    StPicoTrack const* hadron = picoDst->track(i);
+    if(!isGoodHadron(hadron)) continue;
+		float etaHadron = hadron->pMom().pseudoRapidity();
+		float phiHadron = hadron->pMom().phi();
+		if(etaHadron<-0.375)
+		{
+			hadronFill[0]++;
+			hadronFill[1] += sin(2 * phiHadron);
+			hadronFill[2] += cos(2 * phiHadron);
+		}			
+		if(etaHadron>0.375)
+		{
+			hadronFill[3]++;
+			hadronFill[4] += sin(2 * phiHadron);
+			hadronFill[5] += cos(2 * phiHadron);
+		}			
   }
-  if(hadron1Phi.size()==0)  return 0;
-  fixPhi(hadron1Phi);
-  for(unsigned int i=0;i<hadron1Phi.size();i++)
-  { 
-    float eta1 = hadron1Eta[i];
-    float phi1 = hadron1Phi[i];
-    getCorHadron(eta1,hadron2Phi);
-    sumHadronPair += hadron2Phi.size();
-    sumCosPair += sumCos(phi1,hadron2Phi);
-  }
-  return sqrt(sumCosPair/sumHadronPair);
+	mHadronTuple->Fill(hadronFill);
+  return true;
 }
   
    
