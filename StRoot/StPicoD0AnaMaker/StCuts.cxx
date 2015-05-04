@@ -24,7 +24,7 @@ namespace mycuts
    //tracking
    int const nHitsFit = 20;
    bool const requireHFT = true;
-   float const minPt = 1.2;
+   float const minPt = 0.8;
 
    //pions
    float const nSigmaPion = 3.0;

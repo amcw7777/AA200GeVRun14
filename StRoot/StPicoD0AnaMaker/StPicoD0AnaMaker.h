@@ -85,7 +85,7 @@ class StPicoD0AnaMaker : public StMaker
     float getTofBeta(StPicoTrack const*,StThreeVectorF const * pVtx) const;
 
     // Code from Xin Dong to do Minuit vertex fit
-    StThreeVectorD vtxReFit(StPicoDst*);
+    StThreeVectorF vtxReFit(StPicoDst*);
     bool    accept(StPicoTrack*) const;   // track filter
     static void fcn(Int_t&, Double_t*, Double_t&, Double_t*, Int_t); // fit function
     static Double_t Chi2atVertex(StThreeVectorD &vtx);
