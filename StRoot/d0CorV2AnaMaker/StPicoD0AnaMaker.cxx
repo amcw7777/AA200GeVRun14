@@ -73,6 +73,7 @@ Int_t StPicoD0AnaMaker::Init()
    mEventTuple = new TNtuple("mEventTuple","","v2Hadron:sumCosCond:sumPairCon:sumCosBkg:mult");
 	 mDTuple = new TNtuple("mDTuple","","phi:cosHadron:sinHadron:sumHadron:pT:mass:sign:eta");
    mHadronTuple = new TNtuple("mHadronTuple","","sum1:sin1:cos1:sum2:sin2:cos2");
+	 etaPhi = new TH2F("etaPhi","",100,0,3.1416,100,0.5,1.5);
    mOutputFile->cd();
 
 //   if (!mHFCuts)
@@ -96,6 +97,7 @@ Int_t StPicoD0AnaMaker::Finish()
    mEventTuple->Write();
 	 mDTuple->Write();
 	 mHadronTuple->Write();
+	 etaPhi->Write();
  
    mOutputFile->Close();
    delete mPrescales;
@@ -167,7 +169,9 @@ Int_t StPicoD0AnaMaker::Make()
 				float d0Eta = kp->eta();
 				d0Fill[0] = d0Phi; 
 				vector<float> hadronPhi;
-				getCorHadron(d0Eta,hadronPhi);
+				int index1 = kp->kaonIdx();
+				int index2 = kp->pionIdx();
+				getCorHadron(d0Eta,hadronPhi,index1,index2,d0Phi);
 			  int sumHadron = hadronPhi.size();
 				float cosHadron = 0;
 				float sinHadron = 0;
@@ -323,14 +327,18 @@ bool StPicoD0AnaMaker::isTofKaon(StPicoTrack const * const trk, float beta) cons
 }
 
 
-bool StPicoD0AnaMaker::getCorHadron(float eta,vector<float> &hadronsPhi) 
+bool StPicoD0AnaMaker::getCorHadron(float eta,vector<float> &hadronsPhi, int index1,int index2, float phi) 
 {
   for(unsigned int i=0;i<picoDst->numberOfTracks();++i)
   {
     StPicoTrack const* hadron = picoDst->track(i);
+		if(i==index1 || i==index2) continue;
     if(!isGoodHadron(hadron)) continue;
     float dEta = fabs(hadron->pMom().pseudoRapidity() - eta);
-    if(dEta< mycuts::corDetaMin || dEta>mycuts::corDetaMax)  continue;
+    float dPhi = fabs(hadron->pMom().phi() - phi);
+		if(dPhi>3.1416) dPhi = 2*3.1416-dPhi;
+    if(dEta< mycuts::corDetaMin || dEta > mycuts::corDetaMax)  continue;
+		etaPhi->Fill(dPhi,dEta);
     hadronsPhi.push_back(hadron->pMom().phi());
   }
 //  fixPhi(hadronsPhi);
@@ -387,7 +395,7 @@ bool StPicoD0AnaMaker::getHadronCorV2()
   return true;
 }
   
-   
+  /* 
 float StPicoD0AnaMaker::getD0CorV2(int *sumPair, vector<const StKaonPion *> cand)
 {
   float sumCosPair = 0;
@@ -408,14 +416,14 @@ float StPicoD0AnaMaker::getD0CorV2(int *sumPair, vector<const StKaonPion *> cand
   { 
     float eta1 = hadron1Eta[i];
     float phi1 = hadron1Phi[i];
-    getCorHadron(eta1,hadron2Phi);
+    getCorHadron(eta1,hadron2Phi,-1,-1,0);
     *sumPair += hadron2Phi.size();
     sumCosPair += sumCos(phi1,hadron2Phi);
   }
   return sumCosPair/(*sumPair);
 }
   
-    
+   */ 
 
 
 

@@ -75,7 +75,7 @@ class StPicoD0AnaMaker : public StMaker
     bool  isTpcKaon(StPicoTrack const*,StThreeVectorF const * pVtx) const;
     bool isTofKaon(StPicoTrack const* const, float beta) const;
     float getTofBeta(StPicoTrack const*,StThreeVectorF const * pVtx) const;
-    bool getCorHadron(float eta, vector<float> &hadronsPhi);
+    bool getCorHadron(float eta, vector<float> &hadronsPhi, int, int , float);
     float sumCos(float phi, vector<float> &hadronsPhi);
     bool fixPhi(vector<float> &phi);
     bool getHadronCorV2();
@@ -101,7 +101,7 @@ class StPicoD0AnaMaker : public StMaker
     TNtuple *mEventTuple;
 		TNtuple *mDTuple;
 		TNtuple *mHadronTuple;
-
+		TH2F *etaPhi;
     ClassDef(StPicoD0AnaMaker, 1)
 };
 
