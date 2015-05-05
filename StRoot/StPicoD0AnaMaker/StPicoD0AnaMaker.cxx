@@ -248,6 +248,70 @@ Int_t StPicoD0AnaMaker::Make()
    t1 = clock();
    primaryVertexRefit(&d0Vertex,daughter);//Refit d0Vertex removing D0 daughters
    t2 = clock();
+//////////Leon 05/05/2015 using PicoTracks construct pair//////
+	 std::vector<unsigned short> idxPicoKaons;
+	 std::vector<unsigned short> idxPicoPions;
+   Int_t nTracks = picoDst->numberOfTracks();
+	 for (unsigned short iTrack = 0; iTrack < nTracks; ++iTrack)
+	 {
+		 StPicoTrack* trk = picoDst->track(iTrack);
+		 if (!trk || !isGoodTrack(trk)) continue;
+		 if (isTpcPion(trk)) idxPicoPions.push_back(iTrack);
+		 if (isTpcKaon(trk,&pVtx)) idxPicoKaons.push_back(iTrack);
+	 } // .. end tracks loop
+
+	 for (unsigned short ik = 0; ik < idxPicoKaons.size(); ++ik)
+	 {
+		 StPicoTrack const * kaon = picoDst->track(idxPicoKaons[ik]);
+		 for (unsigned short ip = 0; ip < idxPicoPions.size(); ++ip)
+		 {
+			 if (idxPicoKaons[ik] == idxPicoPions[ip]) continue;
+			 StPicoTrack const * pion = picoDst->track(idxPicoPions[ip]);
+
+
+			 StKaonPion originkp(kaon,pion,idxPicoKaons[ik],idxPicoPions[ip],pVtx,bField);
+			 StKaonPion testkp(kaon,pion,idxPicoKaons[ik],idxPicoPions[ip],testVertex,bField);
+			 StKaonPion minuitkp(kaon,pion,idxPicoKaons[ik],idxPicoPions[ip],minuitVertex,bField);
+
+			 if (!isGoodTrack(kaon) || !isGoodTrack(pion)) continue;
+			 if (!isTpcPion(pion)) continue;
+			 int charge=0;
+			 float mDmass_fill[6];
+
+			 if((charge=isD0Pair(&originkp))!=0 && isTpcKaon(kaon,&pVtx))
+			 {
+				 mDmass_fill[0]=originkp.m();
+				 mDmass_fill[1]=charge;
+				 mDmass_fill[2]=mult;
+				 mDmass_fill[3]=kaon->gPt();
+				 mDmass_fill[4]=kaon->gPt();
+
+				 mOrigin->Fill(mDmass_fill);
+
+			 }
+
+			 if((charge=isD0Pair(&testkp))!=0 && isTpcKaon(kaon,&testVertex))
+			 {
+				 mDmass_fill[0]=testkp.m();
+				 mDmass_fill[1]=charge;
+				 mDmass_fill[2]=mult;
+				 mDmass_fill[3]=kaon->gPt();
+				 mDmass_fill[4]=kaon->gPt();
+				 mTest->Fill(mDmass_fill);
+			 }
+
+			 if((charge=isD0Pair(&minuitkp))!=0 && isTpcKaon(kaon,&minuitVertex))
+			 {
+				 mDmass_fill[0]=minuitkp.m();
+				 mDmass_fill[1]=charge;
+				 mDmass_fill[2]=mult;
+				 mDmass_fill[3]=kaon->gPt();
+				 mDmass_fill[4]=kaon->gPt();
+				 mRefit->Fill(mDmass_fill);
+			 }
+		 }//Loop pair done
+	 }//loop kaon done
+/*
    for (int idx = 0; idx < aKaonPion->GetEntries(); ++idx)
    {
       StKaonPion const* kp = (StKaonPion*)aKaonPion->At(idx);
@@ -302,6 +366,7 @@ Int_t StPicoD0AnaMaker::Make()
 			}
  
    }
+*/
      
    float refittuple_fill[20]; 
    refittuple_fill[0] = testVertex.x(); 
