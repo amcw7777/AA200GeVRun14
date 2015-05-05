@@ -80,7 +80,8 @@ class StPicoD0AnaMaker : public StMaker
     bool isGoodEvent();
     bool  isGoodTrack(StPicoTrack const*) const;
     bool  isTpcPion(StPicoTrack const*) const;
-    bool  isTpcKaon(StPicoTrack const*,StThreeVectorF const * pVtx) const;
+    bool  isTpcKaon(StPicoTrack const*) const;
+    bool  isKaon(StPicoTrack const*,StThreeVectorF const * pVtx) const;
     bool isTofKaon(StPicoTrack const* const, float beta) const;
     float getTofBeta(StPicoTrack const*,StThreeVectorF const * pVtx) const;
 

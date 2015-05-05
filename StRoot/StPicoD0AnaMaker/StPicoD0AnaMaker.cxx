@@ -216,7 +216,7 @@ Int_t StPicoD0AnaMaker::Make()
   StPicoEvent *event = (StPicoEvent *)picoDst->event();
   //   int aEventStat[mHFCuts->eventStatMax()];
   //   if(!(mHFCuts->isGoodEvent(event,aEventStat)))
-  if(!(isGoodEvent()) || event->refMult()>50)
+  if(!(isGoodEvent()) || event->refMult()>100)
   {
     //     LOG_WARN << " Not Good Event! Skip! " << endm;
     return kStWarn;
@@ -236,7 +236,7 @@ Int_t StPicoD0AnaMaker::Make()
   vector<int> daughter;
   daughter.clear();
   primaryVertexRefit(&testVertex,daughter);//refit vertex using all tracks
-
+/*
   for (int idx = 0; idx < aKaonPion->GetEntries(); ++idx)
   {
     StKaonPion const* kp = (StKaonPion*)aKaonPion->At(idx);
@@ -248,6 +248,7 @@ Int_t StPicoD0AnaMaker::Make()
   t1 = clock();
   primaryVertexRefit(&d0Vertex,daughter);//Refit d0Vertex removing D0 daughters
   t2 = clock();
+*/
   //////////Leon 05/05/2015 using PicoTracks construct pair//////
   std::vector<unsigned short> idxPicoKaons;
   std::vector<unsigned short> idxPicoPions;
@@ -257,9 +258,8 @@ Int_t StPicoD0AnaMaker::Make()
     StPicoTrack* trk = picoDst->track(iTrack);
     if (!trk || !isGoodTrack(trk)) continue;
     if (isTpcPion(trk)) idxPicoPions.push_back(iTrack);
-    if (isTpcKaon(trk,&pVtx)) idxPicoKaons.push_back(iTrack);
+    if (fabs(trk->nSigmaKaon()) < mycuts::nSigmaKaon) idxPicoKaons.push_back(iTrack);
   } // .. end tracks loop
-
   for (unsigned short ik = 0; ik < idxPicoKaons.size(); ++ik)
   {
     StPicoTrack const * kaon = picoDst->track(idxPicoKaons[ik]);
@@ -273,12 +273,12 @@ Int_t StPicoD0AnaMaker::Make()
       StKaonPion testkp(kaon,pion,idxPicoKaons[ik],idxPicoPions[ip],testVertex,bField);
       StKaonPion minuitkp(kaon,pion,idxPicoKaons[ik],idxPicoPions[ip],minuitVertex,bField);
 
-      if (!isGoodTrack(kaon) || !isGoodTrack(pion)) continue;
-      if (!isTpcPion(pion)) continue;
+      //if (!isGoodTrack(kaon) || !isGoodTrack(pion)) continue;
+      //if (!isTpcPion(pion)) continue;
       int charge=0;
       float mDmass_fill[6];
 
-      if((charge=isD0Pair(&originkp))!=0 && isTpcKaon(kaon,&pVtx))
+      if((charge=isD0Pair(&originkp))!=0 && isKaon(kaon,&pVtx))
       {
         mDmass_fill[0]=originkp.m();
         mDmass_fill[1]=charge;
@@ -289,8 +289,7 @@ Int_t StPicoD0AnaMaker::Make()
         mOrigin->Fill(mDmass_fill);
 
       }
-
-      if((charge=isD0Pair(&testkp))!=0 && isTpcKaon(kaon,&testVertex))
+      if((charge=isD0Pair(&testkp))!=0 && isKaon(kaon,&testVertex))
       {
         mDmass_fill[0]=testkp.m();
         mDmass_fill[1]=charge;
@@ -300,7 +299,7 @@ Int_t StPicoD0AnaMaker::Make()
         mTest->Fill(mDmass_fill);
       }
 
-      if((charge=isD0Pair(&minuitkp))!=0 && isTpcKaon(kaon,&minuitVertex))
+      if((charge=isD0Pair(&minuitkp))!=0 && isKaon(kaon,&minuitVertex))
       {
         mDmass_fill[0]=minuitkp.m();
         mDmass_fill[1]=charge;
@@ -326,7 +325,7 @@ Int_t StPicoD0AnaMaker::Make()
      int charge=0;
      float mDmass_fill[6];
 
-     if((charge=isD0Pair(kp))!=0 && isTpcKaon(kaon,&pVtx))
+     if((charge=isD0Pair(kp))!=0 && isKaon(kaon,&pVtx))
      {
      mDmass_fill[0]=kp->m();
      mDmass_fill[1]=charge;
@@ -338,7 +337,7 @@ Int_t StPicoD0AnaMaker::Make()
 
      }
 
-     if((charge=isD0Pair(&testkp))!=0 && isTpcKaon(kaon,&testVertex))
+     if((charge=isD0Pair(&testkp))!=0 && isKaon(kaon,&testVertex))
      {
      mDmass_fill[0]=testkp.m();
      mDmass_fill[1]=charge;
@@ -348,14 +347,14 @@ Int_t StPicoD0AnaMaker::Make()
      mTest->Fill(mDmass_fill);
      }
 
-  //      if((charge=isD0Pair(&d0kp))!=0 && isTpcKaon(kaon,&d0Vertex))
+  //      if((charge=isD0Pair(&d0kp))!=0 && isKaon(kaon,&d0Vertex))
   //      {
   //	mDmass_fill[0]=d0kp.m();
   //	mDmass_fill[1]=charge;
   //	mDmass_fill[2]=mult;
   //        mRefit->Fill(mDmass_fill);
   //      }
-  if((charge=isD0Pair(&minuitkp))!=0 && isTpcKaon(kaon,&minuitVertex))
+  if((charge=isD0Pair(&minuitkp))!=0 && isKaon(kaon,&minuitVertex))
   {
   mDmass_fill[0]=minuitkp.m();
   mDmass_fill[1]=charge;
@@ -399,7 +398,7 @@ bool StPicoD0AnaMaker::isGoodPair(StKaonPion const* const kp) const
   bool pairCuts = kp->m()>1.6 && kp->m()<2.1 &&
     charge==-1;
 
-  return (isTpcKaon(kaon,&pVtx) && isTpcPion(pion) && 
+  return (isKaon(kaon,&pVtx) && isTpcPion(pion) && 
       pairCuts);
 }
 
@@ -526,12 +525,17 @@ bool StPicoD0AnaMaker::isTpcPion(StPicoTrack const * const trk) const
   return fabs(trk->nSigmaPion()) < mycuts::nSigmaPion;
 }
 //-----------------------------------------------------------------------------
-bool StPicoD0AnaMaker::isTpcKaon(StPicoTrack const * const trk, StThreeVectorF const* const pVtx) const
+bool StPicoD0AnaMaker::isTpcKaon(StPicoTrack const * const trk) const
+{
+  return fabs(trk->nSigmaKaon()) < mycuts::nSigmaKaon;
+}
+//-----------------------------------------------------------------------------
+bool StPicoD0AnaMaker::isKaon(StPicoTrack const * const trk, StThreeVectorF const* const pVtx) const
 {
   float kBeta = getTofBeta(trk,pVtx);
   bool tofAvailable = kBeta>0;
   bool tofKaon = tofAvailable && isTofKaon(trk,kBeta);
-  return fabs(trk->nSigmaKaon()) < mycuts::nSigmaKaon
+  return isTpcKaon(trk) 
     || tofKaon;
 }
 //-----------------------------------------------------------------------------
