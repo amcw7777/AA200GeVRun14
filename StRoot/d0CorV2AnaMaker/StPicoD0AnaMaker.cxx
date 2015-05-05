@@ -162,9 +162,9 @@ Int_t StPicoD0AnaMaker::Make()
       if (!isTpcPion(pion)) continue;
       int charge=0;
     	
-			float d0Fill[10] = {0}; 
       if((charge=isD0Pair(kp))!=0 && isTpcKaon(kaon,&pVtx))
       {
+				float d0Fill[10] = {0}; 
 				float d0Phi = kp->phi();
 				float d0Eta = kp->eta();
 				d0Fill[0] = d0Phi; 
@@ -187,8 +187,8 @@ Int_t StPicoD0AnaMaker::Make()
 				d0Fill[5] = kp->m();
 				d0Fill[6] = charge;
 				d0Fill[7] = kp->eta();
+				mDTuple->Fill(d0Fill);
       }
-			mDTuple->Fill(d0Fill);
    
    }
 	 getHadronCorV2();
@@ -254,8 +254,8 @@ bool StPicoD0AnaMaker::isGoodTrack(StPicoTrack const * const trk) const
    // Require at least one hit on every layer of PXL and IST.
    // It is done here for tests on the preview II data.
    // The new StPicoTrack which is used in official production has a method to check this
-   //return trk->gPt() > mycuts::minPt && trk->nHitsFit() >= mycuts::nHitsFit;
-   return  trk->nHitsFit() >= mycuts::nHitsFit;
+   return trk->gPt() > mycuts::minPt && trk->nHitsFit() >= mycuts::nHitsFit;
+   //return  trk->nHitsFit() >= mycuts::nHitsFit;
 }
 //-----------------------------------------------------------------------------
 bool StPicoD0AnaMaker::isGoodHadron(StPicoTrack const * const trk) const
