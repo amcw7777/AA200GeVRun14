@@ -545,8 +545,7 @@ bool StPicoD0AnaMaker::isKaon(StPicoTrack const * const trk, StThreeVectorF cons
   float kBeta = getTofBeta(trk,pVtx);
   bool tofAvailable = kBeta>0;
   bool tofKaon = tofAvailable && isTofKaon(trk,kBeta);
-  return isTpcKaon(trk) 
-    || tofKaon;
+  return (!tofAvailable && isTpcKaon(trk)) || tofKaon;
 }
 //-----------------------------------------------------------------------------
 float StPicoD0AnaMaker::getTofBeta(StPicoTrack const* const trk, StThreeVectorF const* const pVtx) const
