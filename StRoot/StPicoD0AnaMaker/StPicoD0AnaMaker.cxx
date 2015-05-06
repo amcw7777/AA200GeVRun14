@@ -545,16 +545,12 @@ bool StPicoD0AnaMaker::isKaon(StPicoTrack const * const trk, StThreeVectorF cons
   float kBeta = getTofBeta(trk,pVtx);
   bool tofAvailable = kBeta>0;
   bool tofKaon = tofAvailable && isTofKaon(trk,kBeta);
-  return isTpcKaon(trk) 
-    || tofKaon;
+  return (!tofAvailable && isTpcKaon(trk)) || tofKaon;
 }
 //-----------------------------------------------------------------------------
-float StPicoD0AnaMaker::getTofBeta(StPicoTrack const * const trk, StThreeVectorF const* const pVtx) const
+float StPicoD0AnaMaker::getTofBeta(StPicoTrack const* const trk, StThreeVectorF const* const pVtx) const
 {
-  StPhysicalHelixD helix = trk->helix();
-
   int index2tof = trk->bTofPidTraitsIndex();
-
   float beta = std::numeric_limits<float>::quiet_NaN();
 
   if(index2tof >= 0)
@@ -569,14 +565,11 @@ float StPicoD0AnaMaker::getTofBeta(StPicoTrack const * const trk, StThreeVectorF
       {
         StThreeVectorF const btofHitPos = tofPid->btofHitPos();
 
+        StPhysicalHelixD helix = trk->helix();
         float L = tofPathLength(pVtx, &btofHitPos, helix.curvature());
         float tof = tofPid->btof();
         if (tof > 0) beta = L / (tof * (C_C_LIGHT / 1.e9));
         else beta = std::numeric_limits<float>::quiet_NaN();
-      }
-      else
-      {
-        beta = std::numeric_limits<float>::quiet_NaN();
       }
     }
   }
