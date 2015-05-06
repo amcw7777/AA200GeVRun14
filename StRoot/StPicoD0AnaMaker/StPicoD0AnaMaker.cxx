@@ -118,9 +118,9 @@ Int_t StPicoD0AnaMaker::Init()
 
   mOutputFile = new TFile(mOutFileName.Data(), "RECREATE");
   mEventtuple = new TNtuple("mEventtuple","mEventtuple","testx:testy:testz:refitx:refity:refitz:prmx:prmy:prmz:mult");
-  mOrigin= new TNtuple("mOrigin","mOrigin","mass:charge:mult:kpt:ppt:D0pt");
-  mTest= new TNtuple("mTest","mTest","mass:charge:mult:kpt:ppt:D0pt");
-  mRefit= new TNtuple("mRefit","mRefit","mass:charge:mult:kpt:ppt:D0pt");
+  mOrigin= new TNtuple("mOrigin","mOrigin","mass:charge:mult:kpt:ppt:D0pt:decayLength:dcaKP");
+  mTest= new TNtuple("mTest","mTest","mass:charge:mult:kpt:ppt:D0pt:decayLength:dcaKP");
+  mRefit= new TNtuple("mRefit","mRefit","mass:charge:mult:kpt:ppt:D0pt:decayLength:dcaKP");
   mDmass_unlike = new TH1D("mDmass_unlike","",50,1.6,2.1);
   mDmass_like = new TH1D("mDmass_like","",500,1.6,2.1);
   mDmasscut_unlike = new TH1D("mDmasscut_unlike","",500,1.6,2.1);
@@ -276,7 +276,7 @@ Int_t StPicoD0AnaMaker::Make()
       //if (!isGoodTrack(kaon) || !isGoodTrack(pion)) continue;
       //if (!isTpcPion(pion)) continue;
       int charge=0;
-      float mDmass_fill[6];
+      float mDmass_fill[8];
 
       if((charge=isD0Pair(&originkp))!=0 && isKaon(kaon,&pVtx))
       {
@@ -285,6 +285,10 @@ Int_t StPicoD0AnaMaker::Make()
         mDmass_fill[2]=mult;
         mDmass_fill[3]=kaon->gPt();
         mDmass_fill[4]=kaon->gPt();
+        mDmass_fill[5]=originkp.pt();
+        mDmass_fill[6]=originkp.decayLength();
+        mDmass_fill[7]=originkp.dcaDaughters();
+    
 
         mOrigin->Fill(mDmass_fill);
 
@@ -296,6 +300,9 @@ Int_t StPicoD0AnaMaker::Make()
         mDmass_fill[2]=mult;
         mDmass_fill[3]=kaon->gPt();
         mDmass_fill[4]=kaon->gPt();
+        mDmass_fill[5]=testkp.pt();
+        mDmass_fill[6]=testkp.decayLength();
+        mDmass_fill[7]=testkp.dcaDaughters();
         mTest->Fill(mDmass_fill);
       }
 
@@ -306,6 +313,9 @@ Int_t StPicoD0AnaMaker::Make()
         mDmass_fill[2]=mult;
         mDmass_fill[3]=kaon->gPt();
         mDmass_fill[4]=kaon->gPt();
+        mDmass_fill[5]=minuitkp.pt();
+        mDmass_fill[6]=minuitkp.decayLength();
+        mDmass_fill[7]=minuitkp.dcaDaughters();
         mRefit->Fill(mDmass_fill);
       }
     }//Loop pair done
