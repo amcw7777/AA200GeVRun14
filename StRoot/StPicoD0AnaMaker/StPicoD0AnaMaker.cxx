@@ -252,6 +252,8 @@ Int_t StPicoD0AnaMaker::Make()
   //////////Leon 05/05/2015 using PicoTracks construct pair//////
   std::vector<unsigned short> idxPicoKaons;
   std::vector<unsigned short> idxPicoPions;
+  idxPicoKaons.clear();
+  idxPicoPions.clear();
   Int_t nTracks = picoDst->numberOfTracks();
   for (unsigned short iTrack = 0; iTrack < nTracks; ++iTrack)
   {
@@ -273,8 +275,8 @@ Int_t StPicoD0AnaMaker::Make()
       StKaonPion testkp(kaon,pion,idxPicoKaons[ik],idxPicoPions[ip],testVertex,bField);
       StKaonPion minuitkp(kaon,pion,idxPicoKaons[ik],idxPicoPions[ip],minuitVertex,bField);
 
-      //if (!isGoodTrack(kaon) || !isGoodTrack(pion)) continue;
-      //if (!isTpcPion(pion)) continue;
+      if (!isGoodTrack(kaon) || !isGoodTrack(pion)) continue;
+      if (!isTpcPion(pion)) continue;
       int charge=0;
       float mDmass_fill[8];
 
@@ -420,7 +422,8 @@ int StPicoD0AnaMaker::isD0Pair(StKaonPion const* const kp) const
   StPicoTrack const* pion = picoDst->track(kp->pionIdx());
   bool pairCuts =  cos(kp->pointingAngle()) > mycuts::cosTheta &&
     kp->pionDca() > mycuts::pDca && kp->kaonDca() > mycuts::kDca &&
-    kp->dcaDaughters() < mycuts::dcaDaughters;
+    kp->dcaDaughters() < mycuts::dcaDaughters &&
+    kp->m()> mycuts::minMass&&kp->m()< mycuts::maxMass;
   int charge = kaon->charge() * pion->charge();
 
 
@@ -527,7 +530,7 @@ bool StPicoD0AnaMaker::isGoodTrack(StPicoTrack const * const trk) const
   // Require at least one hit on every layer of PXL and IST.
   // It is done here for tests on the preview II data.
   // The new StPicoTrack which is used in official production has a method to check this
-  return trk->gPt() > mycuts::minPt && trk->nHitsFit() >= mycuts::nHitsFit;
+  return trk->gPt() > mycuts::minPt && trk->nHitsFit() >= mycuts::nHitsFit && trk->isHFTTrack();
 }
 //-----------------------------------------------------------------------------
 bool StPicoD0AnaMaker::isTpcPion(StPicoTrack const * const trk) const
