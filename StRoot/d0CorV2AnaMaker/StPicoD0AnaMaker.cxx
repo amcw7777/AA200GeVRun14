@@ -73,7 +73,10 @@ Int_t StPicoD0AnaMaker::Init()
    mEventTuple = new TNtuple("mEventTuple","","v2Hadron:sumCosCond:sumPairCon:sumCosBkg:mult");
 	 mDTuple = new TNtuple("mDTuple","","phi:cosHadron:sinHadron:sumHadron:pT:mass:sign:eta");
    mHadronTuple = new TNtuple("mHadronTuple","","sum1:sin1:cos1:sum2:sin2:cos2");
-	 etaPhi = new TH2F("etaPhi","",100,0,3.1416,100,0.5,1.5);
+	 etaPhi = new TH2F("etaPhi","",100,0,6.29,100,0.5,1.5);
+	 etaPhi_D = new TH2F("etaPhiD","",100,-3.1416,3.1416,100,-2,2);
+	 etaPhi_Hadron = new TH2F("etaPhiHadron","",100,-3.1416,3.1416,100,-2,2);
+	 etaPhi_Hadron_all = new TH2F("etaPhiHadronAll","",100,-3.1416,3.1416,100,-2,2);
    mOutputFile->cd();
 
 //   if (!mHFCuts)
@@ -98,6 +101,9 @@ Int_t StPicoD0AnaMaker::Finish()
 	 mDTuple->Write();
 	 mHadronTuple->Write();
 	 etaPhi->Write();
+	 etaPhi_D->Write();
+	 etaPhi_Hadron->Write();
+	 etaPhi_Hadron_all->Write();
  
    mOutputFile->Close();
    delete mPrescales;
@@ -172,6 +178,7 @@ Int_t StPicoD0AnaMaker::Make()
 				int index1 = kp->kaonIdx();
 				int index2 = kp->pionIdx();
 				getCorHadron(d0Eta,hadronPhi,index1,index2,d0Phi);
+        etaPhi_D->Fill(d0Phi,d0Eta);
 			  int sumHadron = hadronPhi.size();
 				float cosHadron = 0;
 				float sinHadron = 0;
@@ -189,7 +196,6 @@ Int_t StPicoD0AnaMaker::Make()
 				d0Fill[7] = kp->eta();
 				mDTuple->Fill(d0Fill);
       }
-   
    }
 	 getHadronCorV2();
    float mEventFill[5];
@@ -332,13 +338,16 @@ bool StPicoD0AnaMaker::getCorHadron(float eta,vector<float> &hadronsPhi, int ind
   for(unsigned int i=0;i<picoDst->numberOfTracks();++i)
   {
     StPicoTrack const* hadron = picoDst->track(i);
+		etaPhi_Hadron_all->Fill(hadron->pMom().phi(),hadron->pMom().pseudoRapidity());
 		if(i==index1 || i==index2) continue;
     if(!isGoodHadron(hadron)) continue;
     float dEta = fabs(hadron->pMom().pseudoRapidity() - eta);
     float dPhi = fabs(hadron->pMom().phi() - phi);
-		if(dPhi>3.1416) dPhi = 2*3.1416-dPhi;
+		//if(dPhi>3.1416) dPhi = 2*3.1416-dPhi;
+		dPhi = fabs(dPhi);
     if(dEta< mycuts::corDetaMin || dEta > mycuts::corDetaMax)  continue;
 		etaPhi->Fill(dPhi,dEta);
+		etaPhi_Hadron->Fill(hadron->pMom().phi(),hadron->pMom().pseudoRapidity());
     hadronsPhi.push_back(hadron->pMom().phi());
   }
 //  fixPhi(hadronsPhi);
