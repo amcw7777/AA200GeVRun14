@@ -74,6 +74,7 @@
 #include <stdio.h>
 #include <time.h>
 
+#include "StPicoKFVertexFitter/StPicoKFVertexFitter.h"
 vector<StDcaGeometry>     StPicoD0AnaMaker::mDCAs;
 vector<StPhysicalHelixD>   StPicoD0AnaMaker::mHelices;
 vector<UShort_t>           StPicoD0AnaMaker::mHelixFlags;
@@ -216,7 +217,8 @@ Int_t StPicoD0AnaMaker::Make()
   StPicoEvent *event = (StPicoEvent *)picoDst->event();
   //   int aEventStat[mHFCuts->eventStatMax()];
   //   if(!(mHFCuts->isGoodEvent(event,aEventStat)))
-  if(!(isGoodEvent()) || event->refMult()>100)
+  //if(!(isGoodEvent()) || event->refMult()>100)
+  if(!(isGoodEvent()) )
   {
     //     LOG_WARN << " Not Good Event! Skip! " << endm;
     return kStWarn;
@@ -236,6 +238,15 @@ Int_t StPicoD0AnaMaker::Make()
   vector<int> daughter;
   daughter.clear();
   primaryVertexRefit(&testVertex,daughter);//refit vertex using all tracks
+
+  StThreeVectorF testgb(-999.,-999.,-999.);
+//  StPicoKFVertexFitter*  gb= new StPicoKFVertexFitter(&testgb,mPicoDstMaker);
+  StPicoKFVertexFitter gb(&testgb,mPicoDstMaker);
+  gb.primaryVertexRefit();
+  cout<<"gb = "<<testgb<<endl;
+  cout<<"kf = "<<testVertex<<endl;
+  
+  
 /*
   for (int idx = 0; idx < aKaonPion->GetEntries(); ++idx)
   {
@@ -378,7 +389,8 @@ Int_t StPicoD0AnaMaker::Make()
 
   }
   */
-
+  //StPicoKFVertexFitter gb;
+  
   float refittuple_fill[20]; 
   refittuple_fill[0] = testVertex.x(); 
   refittuple_fill[1] = testVertex.y(); 
