@@ -71,9 +71,9 @@ Int_t StPicoD0AnaMaker::Init()
 
    mOutputFile = new TFile(mOutFileName.Data(), "RECREATE");
    mEventTuple = new TNtuple("mEventTuple","","v2Hadron:sumCosCond:sumPairCon:sumCosBkg:mult");
-	 mDTuple = new TNtuple("mDTuple","","phi:cosHadron:sinHadron:sumHadron:pT:mass:sign:eta");
-   mHadronTuple = new TNtuple("mHadronTuple","","sum1:sin1:cos1:sum2:sin2:cos2");
-	 etaPhi = new TH2F("etaPhi","",100,0,6.29,100,0.5,1.5);
+	 mDTuple = new TNtuple("mDTuple","","phi:cosHadron:sinHadron:sumHadron:pT:mass:sign:eta:mult");
+   mHadronTuple = new TNtuple("mHadronTuple","","sum1:sin1:cos1:sum2:sin2:cos2:mult");
+	 etaPhi = new TH2F("etaPhi","",200,-6.29,6.29,100,0.5,1.5);
 	 etaPhi_D = new TH2F("etaPhiD","",100,-3.1416,3.1416,100,-2,2);
 	 etaPhi_Hadron = new TH2F("etaPhiHadron","",100,-3.1416,3.1416,100,-2,2);
 	 etaPhi_Hadron_all = new TH2F("etaPhiHadronAll","",100,-3.1416,3.1416,100,-2,2);
@@ -194,6 +194,7 @@ Int_t StPicoD0AnaMaker::Make()
 				d0Fill[5] = kp->m();
 				d0Fill[6] = charge;
 				d0Fill[7] = kp->eta();
+        d0Fill[8] = picoDst->event()->grefMult();
 				mDTuple->Fill(d0Fill);
       }
    }
@@ -266,7 +267,7 @@ bool StPicoD0AnaMaker::isGoodTrack(StPicoTrack const * const trk) const
 //-----------------------------------------------------------------------------
 bool StPicoD0AnaMaker::isGoodHadron(StPicoTrack const * const trk) const
 {
-   return trk->pMom().perp() < mycuts::hadronPtMax && trk->nHitsFit() >= mycuts::nHitsFit && trk->charge()!=0;
+   return trk->pMom().perp() > mycuts::hadronPtMin &&trk->pMom().perp() < mycuts::hadronPtMax && trk->nHitsFit() >= mycuts::nHitsFit && trk->charge()!=0;
 }
 //-----------------------------------------------------------------------------
 bool StPicoD0AnaMaker::isTpcPion(StPicoTrack const * const trk) const
@@ -338,13 +339,14 @@ bool StPicoD0AnaMaker::getCorHadron(float eta,vector<float> &hadronsPhi, int ind
   for(unsigned int i=0;i<picoDst->numberOfTracks();++i)
   {
     StPicoTrack const* hadron = picoDst->track(i);
+    if(!hadron)  continue; 
+    if(hadron->pMom().perp()<0.2) continue;
 		etaPhi_Hadron_all->Fill(hadron->pMom().phi(),hadron->pMom().pseudoRapidity());
 		if(i==index1 || i==index2) continue;
     if(!isGoodHadron(hadron)) continue;
     float dEta = fabs(hadron->pMom().pseudoRapidity() - eta);
-    float dPhi = fabs(hadron->pMom().phi() - phi);
+    float dPhi = (hadron->pMom().phi() - phi);
 		//if(dPhi>3.1416) dPhi = 2*3.1416-dPhi;
-		dPhi = fabs(dPhi);
     if(dEta< mycuts::corDetaMin || dEta > mycuts::corDetaMax)  continue;
 		etaPhi->Fill(dPhi,dEta);
 		etaPhi_Hadron->Fill(hadron->pMom().phi(),hadron->pMom().pseudoRapidity());
@@ -380,10 +382,11 @@ bool StPicoD0AnaMaker::fixPhi(vector<float> &phi)
   
 bool StPicoD0AnaMaker::getHadronCorV2()
 {
-	float hadronFill[6] = {0};
+	float hadronFill[7] = {0};
   for(unsigned int i=0;i<picoDst->numberOfTracks();++i)
   {
     StPicoTrack const* hadron = picoDst->track(i);
+    if(hadron->pMom().perp()<0.2) continue;
     if(!isGoodHadron(hadron)) continue;
 		float etaHadron = hadron->pMom().pseudoRapidity();
 		float phiHadron = hadron->pMom().phi();
@@ -399,6 +402,7 @@ bool StPicoD0AnaMaker::getHadronCorV2()
 			hadronFill[4] += sin(2 * phiHadron);
 			hadronFill[5] += cos(2 * phiHadron);
 		}			
+    hadronFill[6] = picoDst->event()->grefMult();
   }
 	mHadronTuple->Fill(hadronFill);
   return true;

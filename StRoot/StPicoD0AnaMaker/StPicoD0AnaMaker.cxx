@@ -220,7 +220,7 @@ Int_t StPicoD0AnaMaker::Make()
   //if(!(isGoodEvent()) || event->refMult()>100)
   if(!(isGoodEvent()) )
   {
-    //     LOG_WARN << " Not Good Event! Skip! " << endm;
+    LOG_WARN << " Not Good Event! Skip! " << endm;
     return kStWarn;
   }
   float mult = event->refMult();
@@ -233,18 +233,23 @@ Int_t StPicoD0AnaMaker::Make()
   d0Vertex = pVtx;
   minuitVertex = pVtx;
 
-  minuitVertex = vtxReFit(picoDst);
+  //minuitVertex = vtxReFit(picoDst);
 
   vector<int> daughter;
   daughter.clear();
-  primaryVertexRefit(&testVertex,daughter);//refit vertex using all tracks
+  //primaryVertexRefit(&testVertex,daughter);//refit vertex using all tracks
 
-  StThreeVectorF testgb(-999.,-999.,-999.);
+ // StThreeVectorF testgb(-999.,-999.,-999.);
+//  testgb = (StThreeVectorF)pVtx;
 //  StPicoKFVertexFitter*  gb= new StPicoKFVertexFitter(&testgb,mPicoDstMaker);
-  StPicoKFVertexFitter gb(&testgb,mPicoDstMaker);
-  gb.primaryVertexRefit();
-  cout<<"gb = "<<testgb<<endl;
-  cout<<"kf = "<<testVertex<<endl;
+//  StPicoKFVertexFitter gb;
+//  testgb = gb.primaryVertexRefit(picoDst,daughter);
+  //if(testgb!=(StThreeVectorF)testVertex)
+  if(testVertex!=pVtx)
+  {
+    cout<<"gb = "<<pVtx<<endl;
+    cout<<"kf = "<<testVertex<<endl;
+  }
   
   
 /*

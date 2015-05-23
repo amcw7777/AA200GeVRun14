@@ -46,6 +46,7 @@ namespace mycuts
    float const kDca = 0.008; // minimum
    float const pDca = 0.008;
    // Hadron cuts
+   float const hadronPtMin= 0.2;
    float const hadronPtMax = 2.0;
    float const corDetaMin = 0.75;
    float const corDetaMax = 1.25;

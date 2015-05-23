@@ -52,6 +52,7 @@ namespace mycuts
    extern float const qaKDca;
    extern float const qaPDca;
    //Hadron cuts
+   extern float const hadronPtMin;
    extern float const hadronPtMax;
    extern float const corDetaMin;
    extern float const corDetaMax;
