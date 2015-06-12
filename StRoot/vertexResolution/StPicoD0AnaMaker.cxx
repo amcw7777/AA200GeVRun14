@@ -119,7 +119,7 @@ Int_t StPicoD0AnaMaker::Init()
   mChain->SetBranchAddress("dEvent", &mPicoD0Event);
 
   mOutputFile = new TFile(mOutFileName.Data(), "RECREATE");
-  mEventtuple = new TNtuple("mEventtuple","mEventtuple","kfx:kfy:kfz:kfSub1x:kfSub1y:kfSub1z:kfSub2x:kfSub2y:kfSub2z:minuitx:minuity:minuitz:minuitSub1x:minuitSub1y:minuitSub1z:minuitSub2x:minuitSub2y:minuitSub2z:grefMult:refMult:centrality:nHFTTracks:ZDCx:runId:eventId");
+  mEventtuple = new TNtuple("mEventtuple","mEventtuple","kfx:kfy:kfz:kfSub1x:kfSub1y:kfSub1z:kfSub2x:kfSub2y:kfSub2z:minuitx:minuity:minuitz:minuitSub1x:minuitSub1y:minuitSub1z:minuitSub2x:minuitSub2y:minuitSub2z:grefMult:refMult:centrality:nHFTTracks:ZDCx:runId:eventId:nTrackFitting");
   mOutputFile->cd();
 
   //   if (!mHFCuts)
@@ -229,7 +229,7 @@ Int_t StPicoD0AnaMaker::Make()
   for (unsigned short iTrack = 0; iTrack < nTracks; ++iTrack)
   {
     StPicoTrack* trk = picoDst->track(iTrack);
-    if (!trk || !isGoodTrack(trk)) continue;
+    if (!trk ) continue;
     if(!isGoodForVertexFit(trk,pVtx)) continue;
     daughter.push_back(iTrack);
   } // .. end tracks loop
@@ -285,6 +285,7 @@ Int_t StPicoD0AnaMaker::Make()
   refittuple_fill[22] = event->ZDCx(); 
   refittuple_fill[23] = event->runId();
   refittuple_fill[24] = event->eventId();
+  refittuple_fill[25] = daughter.size();
   mEventtuple->Fill(refittuple_fill);
   return kStOK;
 }
