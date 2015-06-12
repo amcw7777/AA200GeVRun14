@@ -24,14 +24,14 @@ namespace mycuts
    //tracking
    int const nHitsFit = 20;
    bool const requireHFT = true;
-   float const minPt = 1.2;
+   float const minPt = 0.6;
 
    //pions
    float const nSigmaPion = 3.0;
 
    //kaons
    float const nSigmaKaon = 2.0;
-   float const kTofBetaDiff = 0.04;
+   float const kTofBetaDiff = 0.03;
 
    // tree kaonPion pair cuts
    float const cosTheta = 0.995; // minimum
@@ -49,5 +49,5 @@ namespace mycuts
    float const hadronPtMin= 0.2;
    float const hadronPtMax = 2.0;
    float const corDetaMin = 0.75;
-   float const corDetaMax = 1.25;
+   float const corDetaMax = 10;
 }

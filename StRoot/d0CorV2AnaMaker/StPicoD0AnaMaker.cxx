@@ -17,10 +17,10 @@
 #include "StPicoD0EventMaker/StPicoD0Event.h"
 #include "StPicoD0EventMaker/StKaonPion.h"
 #include "StPicoD0AnaMaker.h"
-#include "StPicoHFMaker/StHFCuts.h"
 #include "StPicoDstMaker/StPicoBTofPidTraits.h"
 #include "StCuts.h"
 #include "../StPicoPrescales/StPicoPrescales.h"
+#include "StRoot/StRefMultCorr/StRefMultCorr.h"
 //////Refit include lib
 #include "PhysicalConstants.h"
 #include "StThreeVectorF.hh"
@@ -38,14 +38,14 @@
 ClassImp(StPicoD0AnaMaker)
 
 StPicoD0AnaMaker::StPicoD0AnaMaker(char const * name,char const * inputFilesList, 
-    char const * outName,StPicoDstMaker* picoDstMaker): 
-  StMaker(name),mPicoDstMaker(picoDstMaker),mPicoD0Event(NULL), mOutFileName(outName), mInputFileList(inputFilesList),
-  mOutputFile(NULL), mChain(NULL), mEventCounter(0), mHFCuts(NULL)
-{}
+    char const * outName,StPicoDstMaker* picoDstMaker,StRefMultCorr* grefmultCorrUtil): 
+  StMaker(name),mPicoDstMaker(picoDstMaker),mPicoD0Event(NULL), mGRefMultCorrUtil(grefmultCorrUtil),
+  mOutFileName(outName), mInputFileList(inputFilesList),mOutputFile(NULL), mChain(NULL), mEventCounter(0){}
 
 Int_t StPicoD0AnaMaker::Init()
 {
    mPicoD0Event = new StPicoD0Event();
+   fout.open("check.txt");
 
    mChain = new TChain("T");
    std::ifstream listOfFiles(mInputFileList.Data());
@@ -54,8 +54,9 @@ Int_t StPicoD0AnaMaker::Init()
       std::string file;
       while (getline(listOfFiles, file))
       {
-         LOG_INFO << "StPicoD0AnaMaker - Adding :" << file << endm;
+         LOG_INFO << "StPicoD0AnaMaker - Adding :" << file <<endm;
          mChain->Add(file.c_str());
+         LOG_INFO<<" Entries = "<<mChain->GetEntries()<< endm; 
       }
    }
    else
@@ -71,7 +72,7 @@ Int_t StPicoD0AnaMaker::Init()
 
    mOutputFile = new TFile(mOutFileName.Data(), "RECREATE");
    mEventTuple = new TNtuple("mEventTuple","","v2Hadron:sumCosCond:sumPairCon:sumCosBkg:mult");
-	 mDTuple = new TNtuple("mDTuple","","phi:cosHadron:sinHadron:sumHadron:pT:mass:sign:eta:mult");
+	 mDTuple = new TNtuple("mDTuple","","phi:cosHadron75:sinHadron75:sumHadron75:pT:mass:sign:eta:mult:cosHadron05:sinHadron05:sumHadron05:reweight:cosHadron25:sinHadron25:sumHadron25");
    mHadronTuple = new TNtuple("mHadronTuple","","sum1:sin1:cos1:sum2:sin2:cos2:mult");
 	 etaPhi = new TH2F("etaPhi","",200,-6.29,6.29,100,0.5,1.5);
 	 etaPhi_D = new TH2F("etaPhiD","",100,-3.1416,3.1416,100,-2,2);
@@ -79,10 +80,9 @@ Int_t StPicoD0AnaMaker::Init()
 	 etaPhi_Hadron_all = new TH2F("etaPhiHadronAll","",100,-3.1416,3.1416,100,-2,2);
    mOutputFile->cd();
 
-//   if (!mHFCuts)
-//    mHFCuts = new StHFCuts;   
 
    // -------------- USER VARIABLES -------------------------
+   mGRefMultCorrUtil = new StRefMultCorr("grefmult");
 
    return kStOK;
 }
@@ -90,11 +90,13 @@ Int_t StPicoD0AnaMaker::Init()
 StPicoD0AnaMaker::~StPicoD0AnaMaker()
 {
    /*  */
+   delete mGRefMultCorrUtil;
 }
 //-----------------------------------------------------------------------------
 Int_t StPicoD0AnaMaker::Finish()
 {
    LOG_INFO << " StPicoD0AnaMaker - writing data and closing output file " <<endm;
+    fout.close();
    mOutputFile->cd();
    // save user variables here
    mEventTuple->Write();
@@ -143,8 +145,6 @@ Int_t StPicoD0AnaMaker::Make()
    StThreeVectorF pVtx(-999.,-999.,-999.);
    //StThreeVectorF Vertex(-999.,-999.,-999.);
    StPicoEvent *event = (StPicoEvent *)picoDst->event();
-//   int aEventStat[mHFCuts->eventStatMax()];
-//   if(!(mHFCuts->isGoodEvent(event,aEventStat)))
    if(!(isGoodEvent()))
    {
 //     LOG_WARN << " Not Good Event! Skip! " << endm;
@@ -153,6 +153,16 @@ Int_t StPicoD0AnaMaker::Make()
    if(event) {
      pVtx = event->primaryVertex();
    }
+    if(!mGRefMultCorrUtil) {
+      LOG_WARN << " No mGRefMultCorrUtil! Skip! " << endl;
+      return kStWarn;
+    }
+    mGRefMultCorrUtil->init(picoDst->event()->runId());
+    mGRefMultCorrUtil->initEvent(picoDst->event()->grefMult(),pVtx.z(),picoDst->event()->ZDCx()) ;
+
+    int centrality  = mGRefMultCorrUtil->getCentralityBin9();
+    const double reweight = mGRefMultCorrUtil->getWeight();
+    const double refmultCor = mGRefMultCorrUtil->getRefMultCorr();
 
    vector<const StKaonPion *> signal;
    vector<const StKaonPion *> bkg;
@@ -166,8 +176,72 @@ Int_t StPicoD0AnaMaker::Make()
 
       if (!isGoodTrack(kaon) || !isGoodTrack(pion)) continue;
       if (!isTpcPion(pion)) continue;
+      //if(!isTpcKaon(kaon,&pVtx)) continue;  
+      bool tpcKaon = isTpcKaon(kaon,&pVtx);
+      float kBeta = getTofBeta(kaon,&pVtx);
+      bool tofAvailable = kBeta>0;
+      bool tofKaon = tofAvailable && isTofKaon(kaon,kBeta);
+      bool goodKaon = (tofAvailable && tofKaon) || (!tofAvailable && tpcKaon);
+      if(!goodKaon) continue;
       int charge=0;
-    	
+      if((charge=isD0Pair(kp))!=0 )
+      //for(unsigned int i=0;i<picoDst->numberOfTracks();++i)
+      {
+				float d0Fill[20] = {0}; 
+				float d0Phi = kp->phi();
+				float d0Eta = kp->eta();//hadron->pMom().pseudoRapidity();
+				d0Fill[0] = d0Phi; 
+				vector<float> hadronPhi1;
+				vector<float> hadronPhi2;
+				vector<float> hadronPhi3;
+				int index1 = kp->kaonIdx();
+				int index2 = kp->pionIdx();
+				getCorHadron(d0Eta,hadronPhi1,index1,index2,d0Phi,0.75);
+				getCorHadron(d0Eta,hadronPhi2,index1,index2,d0Phi,0.5);
+				getCorHadron(d0Eta,hadronPhi3,index1,index2,d0Phi,0.25);
+        etaPhi_D->Fill(d0Phi,d0Eta);
+			  int sumHadron1 = hadronPhi1.size();
+				float cosHadron1 = 0;
+				float sinHadron1 = 0;
+				for(int ih=0; ih<sumHadron1; ih++)
+				{
+					cosHadron1 += cos(2*hadronPhi1[ih]);			
+					sinHadron1 += sin(2*hadronPhi1[ih]);			
+				}
+			  int sumHadron2 = hadronPhi2.size();
+				float cosHadron2 = 0;
+				float sinHadron2 = 0;
+				for(int ih=0; ih<sumHadron2; ih++)
+				{
+					cosHadron2 += cos(2*hadronPhi2[ih]);			
+					sinHadron2 += sin(2*hadronPhi2[ih]);			
+				}
+			  int sumHadron3 = hadronPhi3.size();
+				float cosHadron3 = 0;
+				float sinHadron3 = 0;
+				for(int ih=0; ih<sumHadron3; ih++)
+				{
+					cosHadron3 += cos(2*hadronPhi3[ih]);			
+					sinHadron3 += sin(2*hadronPhi3[ih]);			
+				}
+				d0Fill[1] = cosHadron1;
+				d0Fill[2] = sinHadron1;
+				d0Fill[3] = sumHadron1;
+				d0Fill[4] = kp->pt();
+				d0Fill[5] = kp->m();
+				d0Fill[6] = charge;
+				d0Fill[7] = kp->eta();
+        d0Fill[8] = picoDst->event()->grefMult();
+				d0Fill[9] = cosHadron2;
+				d0Fill[10] = sinHadron2;
+				d0Fill[11] = sumHadron2;
+        d0Fill[12] = reweight;
+				d0Fill[13] = cosHadron3;
+				d0Fill[14] = sinHadron3;
+				d0Fill[15] = sumHadron3;
+				mDTuple->Fill(d0Fill);
+      }
+    /*	
       if((charge=isD0Pair(kp))!=0 && isTpcKaon(kaon,&pVtx))
       {
 				float d0Fill[10] = {0}; 
@@ -197,6 +271,7 @@ Int_t StPicoD0AnaMaker::Make()
         d0Fill[8] = picoDst->event()->grefMult();
 				mDTuple->Fill(d0Fill);
       }
+    */
    }
 	 getHadronCorV2();
    float mEventFill[5];
@@ -231,9 +306,41 @@ int StPicoD0AnaMaker::isD0Pair(StKaonPion const* const kp) const
 
   StPicoTrack const* kaon = picoDst->track(kp->kaonIdx());
   StPicoTrack const* pion = picoDst->track(kp->pionIdx());
-  bool pairCuts =  cos(kp->pointingAngle()) > mycuts::cosTheta &&
-          kp->pionDca() > mycuts::pDca && kp->kaonDca() > mycuts::kDca &&
-          kp->dcaDaughters() < mycuts::dcaDaughters;
+//  bool pairCuts =  cos(kp->pointingAngle()) > mycuts::cosTheta &&
+//          kp->pionDca() > mycuts::pDca && kp->kaonDca() > mycuts::kDca &&
+//          kp->dcaDaughters() < mycuts::dcaDaughters;  
+  bool pairCuts = false;
+  if(kp->pt()<1)
+  {
+    pairCuts =  sin(kp->pointingAngle())*kp->decayLength() < 0.0062 &&
+      kp->pionDca() > 0.0109 && kp->kaonDca() > 0.0123 &&
+      kp->dcaDaughters() < 0.0082 && kp->decayLength()>0.0149;  
+  }
+  else if(kp->pt()<2)
+  {
+    pairCuts =  sin(kp->pointingAngle())*kp->decayLength() < 0.0047 &&
+      kp->pionDca() > 0.0108 && kp->kaonDca() > 0.0097 &&
+      kp->dcaDaughters() < 0.0070 && kp->decayLength()>0.0205;  
+  }
+  else if(kp->pt()<3)
+  {
+    pairCuts =  sin(kp->pointingAngle())*kp->decayLength() < 0.0040 &&
+      kp->pionDca() > 0.0100 && kp->kaonDca() > 0.0091 &&
+      kp->dcaDaughters() < 0.0056 && kp->decayLength()>0.0216;  
+  }
+  else if(kp->pt()<5)
+  {
+    pairCuts =  sin(kp->pointingAngle())*kp->decayLength() < 0.0041 &&
+      kp->pionDca() > 0.0074 && kp->kaonDca() > 0.0075 &&
+      kp->dcaDaughters() < 0.0065 && kp->decayLength()>0.0233;  
+  }
+  else 
+  {
+    pairCuts =  sin(kp->pointingAngle())*kp->decayLength() < 0.0042 &&
+      kp->pionDca() > 0.067 && kp->kaonDca() > 0.0053 &&
+      kp->dcaDaughters() < 0.0065 && kp->decayLength()>0.0282;  
+  }
+
   int charge = kaon->charge() * pion->charge();
     
 
@@ -261,7 +368,7 @@ bool StPicoD0AnaMaker::isGoodTrack(StPicoTrack const * const trk) const
    // Require at least one hit on every layer of PXL and IST.
    // It is done here for tests on the preview II data.
    // The new StPicoTrack which is used in official production has a method to check this
-   return trk->gPt() > mycuts::minPt && trk->nHitsFit() >= mycuts::nHitsFit;
+   return trk->gPt() > mycuts::minPt && trk->nHitsFit() >= mycuts::nHitsFit && trk->isHFTTrack();
    //return  trk->nHitsFit() >= mycuts::nHitsFit;
 }
 //-----------------------------------------------------------------------------
@@ -277,16 +384,12 @@ bool StPicoD0AnaMaker::isTpcPion(StPicoTrack const * const trk) const
 //-----------------------------------------------------------------------------
 bool StPicoD0AnaMaker::isTpcKaon(StPicoTrack const * const trk, StThreeVectorF const* const pVtx) const
 {
-  float kBeta = getTofBeta(trk,pVtx);
-  bool tofAvailable = kBeta>0;
-  bool tofKaon = tofAvailable && isTofKaon(trk,kBeta);
-   return fabs(trk->nSigmaKaon()) < mycuts::nSigmaKaon
-           || tofKaon;
+  return fabs(trk->nSigmaKaon()) < mycuts::nSigmaKaon;
+     //      || tofKaon;
 }
 //-----------------------------------------------------------------------------
 float StPicoD0AnaMaker::getTofBeta(StPicoTrack const * const trk, StThreeVectorF const* const pVtx) const
 {
-   StPhysicalHelixD helix = trk->helix();
 
    int index2tof = trk->bTofPidTraitsIndex();
 
@@ -302,16 +405,13 @@ float StPicoD0AnaMaker::getTofBeta(StPicoTrack const * const trk, StThreeVectorF
 
          if (beta < 1e-4)
          {
-            StThreeVectorF const btofHitPos = tofPid->btofHitPos();
+           StThreeVectorF const btofHitPos = tofPid->btofHitPos();
+           StPhysicalHelixD helix = trk->helix();
 
-            float L = tofPathLength(pVtx, &btofHitPos, helix.curvature());
-            float tof = tofPid->btof();
-            if (tof > 0) beta = L / (tof * (C_C_LIGHT / 1.e9));
-            else beta = std::numeric_limits<float>::quiet_NaN();
-         }
-         else
-         {
-           beta = std::numeric_limits<float>::quiet_NaN();
+           float L = tofPathLength(pVtx, &btofHitPos, helix.curvature());
+           float tof = tofPid->btof();
+           if (tof > 0) beta = L / (tof * (C_C_LIGHT / 1.e9));
+           else beta = std::numeric_limits<float>::quiet_NaN();
          }
       }
    }
@@ -334,7 +434,7 @@ bool StPicoD0AnaMaker::isTofKaon(StPicoTrack const * const trk, float beta) cons
 }
 
 
-bool StPicoD0AnaMaker::getCorHadron(float eta,vector<float> &hadronsPhi, int index1,int index2, float phi) 
+bool StPicoD0AnaMaker::getCorHadron(float eta,vector<float> &hadronsPhi, int index1,int index2, float phi, float etaCut) 
 {
   for(unsigned int i=0;i<picoDst->numberOfTracks();++i)
   {
@@ -347,7 +447,7 @@ bool StPicoD0AnaMaker::getCorHadron(float eta,vector<float> &hadronsPhi, int ind
     float dEta = fabs(hadron->pMom().pseudoRapidity() - eta);
     float dPhi = (hadron->pMom().phi() - phi);
 		//if(dPhi>3.1416) dPhi = 2*3.1416-dPhi;
-    if(dEta< mycuts::corDetaMin || dEta > mycuts::corDetaMax)  continue;
+    if(dEta< etaCut|| dEta > mycuts::corDetaMax)  continue;
 		etaPhi->Fill(dPhi,dEta);
 		etaPhi_Hadron->Fill(hadron->pMom().phi(),hadron->pMom().pseudoRapidity());
     hadronsPhi.push_back(hadron->pMom().phi());

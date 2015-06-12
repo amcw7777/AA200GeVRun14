@@ -14,7 +14,8 @@
  *
  * **************************************************
  */
-
+#include <bitset>
+#include <climits>
 #include <vector>
 #include "TChain.h"
 #include "StMaker.h"
@@ -84,6 +85,8 @@ class StPicoD0AnaMaker : public StMaker
     bool  isKaon(StPicoTrack const*,StThreeVectorF const * pVtx) const;
     bool isTofKaon(StPicoTrack const* const, float beta) const;
     float getTofBeta(StPicoTrack const*,StThreeVectorF const * pVtx) const;
+    bool  isGoodForVertexFit(StPicoTrack const*,StThreeVectorF const& vtx) const;
+    size_t popcount(size_t) const;
 
     // Code from Xin Dong to do Minuit vertex fit
     StThreeVectorF vtxReFit(StPicoDst*);
@@ -156,5 +159,12 @@ inline void StPicoD0AnaMaker::setHFCuts(StHFCuts* cuts)
 { 
   mHFCuts = cuts; 
 }
+
+inline size_t StPicoD0AnaMaker::popcount(size_t n) const
+{
+    std::bitset<sizeof(size_t) * CHAR_BIT> b(n);
+    return b.count();
+}
+
 
 #endif

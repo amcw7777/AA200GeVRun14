@@ -43,6 +43,7 @@ class StPicoDst;
 class StPicoTrack;
 class StHFCuts;
 class StPicoPrescales;
+class StRefMultCorr;
 
 
 
@@ -50,7 +51,7 @@ class StPicoD0AnaMaker : public StMaker
 {
   public:
     StPicoD0AnaMaker(char const * name, char const * inputFilesList, 
-        char const * outName,StPicoDstMaker* picoDstMaker);
+        char const * outName,StPicoDstMaker* picoDstMaker,StRefMultCorr* grefmultCorrUtil);
     virtual ~StPicoD0AnaMaker();
 
     virtual Int_t Init();
@@ -64,6 +65,7 @@ class StPicoD0AnaMaker : public StMaker
   private:
     StPicoD0AnaMaker() {}
     void readNextEvent();
+    ofstream fout;
 
     bool isGoodPair(StKaonPion const*) const;
     int isD0Pair(StKaonPion const*) const;
@@ -75,7 +77,7 @@ class StPicoD0AnaMaker : public StMaker
     bool  isTpcKaon(StPicoTrack const*,StThreeVectorF const * pVtx) const;
     bool isTofKaon(StPicoTrack const* const, float beta) const;
     float getTofBeta(StPicoTrack const*,StThreeVectorF const * pVtx) const;
-    bool getCorHadron(float eta, vector<float> &hadronsPhi, int, int , float);
+    bool getCorHadron(float eta, vector<float> &hadronsPhi, int, int , float, float);
     float sumCos(float phi, vector<float> &hadronsPhi);
     bool fixPhi(vector<float> &phi);
     bool getHadronCorV2();
@@ -84,6 +86,7 @@ class StPicoD0AnaMaker : public StMaker
     StPicoDstMaker* mPicoDstMaker;
     StPicoD0Event* mPicoD0Event;
     StPicoPrescales* mPrescales;
+    StRefMultCorr* mGRefMultCorrUtil;
     //StPicoDstMaker *
     StPicoDst *picoDst;
 
