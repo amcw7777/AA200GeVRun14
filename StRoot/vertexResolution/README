@@ -1,0 +1,3 @@
+1.NTuple with both minuit vertex and KF vertex;
+2.SubEvent1 and SubEvent2 are same sample for both vertex;
+3.Modified vertex fitting function (both). Variable 'daughter' is vector of input tracks for fitting.
