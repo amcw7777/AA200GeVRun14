@@ -52,6 +52,7 @@ class StPicoDst;
 class StPicoTrack;
 class StHFCuts;
 class StPicoPrescales;
+class StRefMultCorr;
 
 
 
@@ -59,7 +60,7 @@ class StPicoD0AnaMaker : public StMaker
 {
   public:
     StPicoD0AnaMaker(char const * name, char const * inputFilesList, 
-        char const * outName,StPicoDstMaker* picoDstMaker);
+        char const * outName,StPicoDstMaker* picoDstMaker,StRefMultCorr* grefmultCorrUtil);
     virtual ~StPicoD0AnaMaker();
 
     virtual Int_t Init();
@@ -76,6 +77,7 @@ class StPicoD0AnaMaker : public StMaker
 
     bool isGoodPair(StKaonPion const*) const;
     int isD0Pair(StKaonPion const*) const;
+    int isOptD0Pair(StKaonPion const*) const;
     int primaryVertexRefit(StThreeVectorF *, vector<int>& daughter);
     int D0Reco(StThreeVectorF *);
     bool isGoodEvent();
@@ -88,6 +90,7 @@ class StPicoD0AnaMaker : public StMaker
     bool  isGoodForVertexFit(StPicoTrack const*,StThreeVectorF const& vtx) const;
     size_t popcount(size_t) const;
 
+    StRefMultCorr* mGRefMultCorrUtil;
     // Code from Xin Dong to do Minuit vertex fit
     StThreeVectorF vtxReFit(StPicoDst*);
     bool    accept(StPicoTrack*) const;   // track filter
@@ -115,6 +118,7 @@ class StPicoD0AnaMaker : public StMaker
      TNtuple *mEventtuple;
      TNtuple *mOrigin;
      TNtuple *mTest;
+     TNtuple *mTest1;
      TNtuple *mRefit;
      TH2F *timemult;
      TH1D *mMult;

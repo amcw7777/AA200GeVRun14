@@ -25,6 +25,7 @@
 #include "TCanvas.h"
 #include "TH1K.h"
 #include "TH1D.h"
+#include "TH3D.h"
 #include "TH2F.h"
 #include "StiMaker/StKFVerticesCollection.h"
 #include "StPhysicalHelixD.hh"
@@ -108,6 +109,8 @@ class StPicoD0AnaMaker : public StMaker
 		TH2F *etaPhi_D;
 		TH2F *etaPhi_Hadron;
 		TH2F *etaPhi_Hadron_all;
+    TH3D *likePair[3];
+    TH3D *unlikePair[3];
     ClassDef(StPicoD0AnaMaker, 1)
 };
 

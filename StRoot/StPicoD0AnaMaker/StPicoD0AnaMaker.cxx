@@ -20,6 +20,7 @@
 #include "StPicoDstMaker/StPicoBTofPidTraits.h"
 #include "StCuts.h"
 #include "../StPicoPrescales/StPicoPrescales.h"
+#include "StRoot/StRefMultCorr/StRefMultCorr.h"
 //////Refit include lib
 #include "PhysicalConstants.h"
 #include "StThreeVectorF.hh"
@@ -84,8 +85,8 @@ Double_t                   StPicoD0AnaMaker::mWidthScale = 1;
 ClassImp(StPicoD0AnaMaker)
 
   StPicoD0AnaMaker::StPicoD0AnaMaker(char const * name,char const * inputFilesList, 
-      char const * outName,StPicoDstMaker* picoDstMaker): 
-    StMaker(name),mPicoDstMaker(picoDstMaker),mPicoD0Event(NULL), mOutFileName(outName), mInputFileList(inputFilesList),
+      char const * outName,StPicoDstMaker* picoDstMaker,StRefMultCorr* grefmultCorrUtil): 
+    StMaker(name),mPicoDstMaker(picoDstMaker),mPicoD0Event(NULL), mGRefMultCorrUtil(grefmultCorrUtil), mOutFileName(outName), mInputFileList(inputFilesList),
     mOutputFile(NULL), mChain(NULL), mEventCounter(0), mHFCuts(NULL)
 {}
 
@@ -117,10 +118,11 @@ Int_t StPicoD0AnaMaker::Init()
   mChain->SetBranchAddress("dEvent", &mPicoD0Event);
 
   mOutputFile = new TFile(mOutFileName.Data(), "RECREATE");
-  mEventtuple = new TNtuple("mEventtuple","mEventtuple","testx:testy:testz:refitx:refity:refitz:prmx:prmy:prmz:mult");
-  mOrigin= new TNtuple("mOrigin","mOrigin","mass:charge:mult:kpt:ppt:D0pt:decayLength:dcaKP");
-  mTest= new TNtuple("mTest","mTest","mass:charge:mult:kpt:ppt:D0pt:decayLength:dcaKP");
-  mRefit= new TNtuple("mRefit","mRefit","mass:charge:mult:kpt:ppt:D0pt:decayLength:dcaKP:dcaP:dcaK");
+  mEventtuple = new TNtuple("mEventtuple","mEventtuple","testx:testy:testz:refitx:refity:refitz:prmx:prmy:prmz:mult:runId:eventId");
+  mOrigin= new TNtuple("mOrigin","mOrigin","mass:charge:mult:runId:eventId:D0pt:decayLength:dcaKP:reweight:pointingAngle:pionDca:kaonDca");
+  mTest= new TNtuple("mTest","mTest","mass:charge:mult:runId:eventId:D0pt:decayLength:dcaKP:reweight:pointingAngle:pionDca:kaonDca");
+  mTest1= new TNtuple("mTest1","mTest1","mass:charge:mult:runId:eventId:D0pt:decayLength:dcaKP:reweight:pointingAngle:pionDca:kaonDca");
+  mRefit= new TNtuple("mRefit","mRefit","mass:charge:mult:runId:eventId:D0pt:decayLength:dcaKP:reweight:pointingAngle:pionDca:kaonDca");
   mDmass_unlike = new TH1D("mDmass_unlike","",50,1.6,2.1);
   mDmass_like = new TH1D("mDmass_like","",500,1.6,2.1);
   mDmasscut_unlike = new TH1D("mDmasscut_unlike","",500,1.6,2.1);
@@ -142,6 +144,7 @@ Int_t StPicoD0AnaMaker::Init()
   mMinuit->SetPrintLevel(-1);
   mMinuit->SetMaxIterations(1000);
 
+  mGRefMultCorrUtil = new StRefMultCorr("grefmult");
 
   return kStOK;
 }
@@ -156,10 +159,11 @@ Int_t StPicoD0AnaMaker::Finish()
   LOG_INFO << " StPicoD0AnaMaker - writing data and closing output file " <<endm;
   mOutputFile->cd();
   // save user variables here
-  //mEventtuple->Write();
-  //mOrigin->Write();
-  //mTest->Write();
-  mRefit->Write();
+  mEventtuple->Write();
+  mOrigin->Write();
+//  mTest->Write();
+//  mTest1->Write();
+//  mRefit->Write();
 
   mMult->Write();
   //  mDmass_unlike->Write();
@@ -174,6 +178,7 @@ Int_t StPicoD0AnaMaker::Finish()
   mOutputFile->Close();
   delete dcaG;
   delete mPrescales;
+   delete mGRefMultCorrUtil;
 
   return kStOK;
 }
@@ -212,12 +217,8 @@ Int_t StPicoD0AnaMaker::Make()
   StThreeVectorF testVertex(-999.,-999.,-999.);
   StThreeVectorF d0Vertex(-999.,-999.,-999.);
   StThreeVectorF minuitVertex(-999.,-999.,-999.);
-  //StThreeVectorF Vertex(-999.,-999.,-999.);
   StPicoEvent *event = (StPicoEvent *)picoDst->event();
-  //   int aEventStat[mHFCuts->eventStatMax()];
-  //   if(!(mHFCuts->isGoodEvent(event,aEventStat)))
-  if(!(isGoodEvent()) || event->grefMult()>116)
-  //if(!(isGoodEvent()) )
+  if(!(isGoodEvent()))// || event->grefMult()>116)
   {
     LOG_WARN << " Not Good Event! Skip! " << endm;
     return kStWarn;
@@ -228,44 +229,21 @@ Int_t StPicoD0AnaMaker::Make()
   if(event) {
     pVtx = event->primaryVertex();
   }
- // testVertex = pVtx;
-  //d0Vertex = pVtx;
-    d0Vertex = mPicoD0Event->kfVertex();
+  if(!mGRefMultCorrUtil) {
+    LOG_WARN << " No mGRefMultCorrUtil! Skip! " << endl;
+    return kStWarn;
+  }
+  mGRefMultCorrUtil->init(picoDst->event()->runId());
+  mGRefMultCorrUtil->initEvent(picoDst->event()->grefMult(),pVtx.z(),picoDst->event()->ZDCx()) ;
 
-  //minuitVertex = vtxReFit(picoDst);
+  int centrality  = mGRefMultCorrUtil->getCentralityBin9();
+  const double reweight = mGRefMultCorrUtil->getWeight();
+  const double refmultCor = mGRefMultCorrUtil->getRefMultCorr();
+  d0Vertex = mPicoD0Event->kfVertex();
 
-  vector<int> daughter;
-  daughter.clear();
-  //primaryVertexRefit(&minuitVertex,daughter);//refit vertex using all tracks
   vector<int> idxTracksToRejectFromVtx;
   idxTracksToRejectFromVtx.clear();
   StPicoKFVertexFitter gb;
-  //  minuitVertex= gb.primaryVertexRefit(picoDst,idxTracksToRejectFromVtx);
-  //  testgb = gb.primaryVertexRefit(picoDst,daughter);
-  //minuitVertex = testVertex;
-
-  // StThreeVectorF testgb(-999.,-999.,-999.);
-  //  testgb = (StThreeVectorF)pVtx;
-  //  StPicoKFVertexFitter*  gb= new StPicoKFVertexFitter(&testgb,mPicoDstMaker);
-  //  StPicoKFVertexFitter gb;
-  //  testgb = gb.primaryVertexRefit(picoDst,daughter);
-  //if(testgb!=(StThreeVectorF)testVertex)
-  //if(testVertex!=d0Vertex)
-
-
-  /*
-     for (int idx = 0; idx < aKaonPion->GetEntries(); ++idx)
-     {
-     StKaonPion const* kp = (StKaonPion*)aKaonPion->At(idx);
-     if(!isGoodPair(kp)) continue;
-     daughter.push_back(kp->kaonIdx());
-     daughter.push_back(kp->pionIdx());
-     }
-
-     t1 = clock();
-     primaryVertexRefit(&d0Vertex,daughter);//Refit d0Vertex removing D0 daughters
-     t2 = clock();
-     */
   //////////Leon 05/05/2015 using PicoTracks construct pair//////
   std::vector<unsigned short> idxPicoKaons;
   std::vector<unsigned short> idxPicoPions;
@@ -280,20 +258,40 @@ Int_t StPicoD0AnaMaker::Make()
     if (isTpcPion(trk)) idxPicoPions.push_back(iTrack);
     if (fabs(trk->nSigmaKaon()) < mycuts::nSigmaKaon) idxPicoKaons.push_back(iTrack);
   } // .. end tracks loop
-  if(event->grefMult()<117)
-    testVertex= gb.primaryVertexRefit(picoDst,idxTracksToRejectFromVtx);
-  if(testVertex!=d0Vertex)
-    cout<<"wolegeca = "<<testVertex<<" mustafa = "<<d0Vertex<<" mult = "<<event->grefMult()<<endl;
+  //testVertex= gb.primaryVertexRefit(picoDst,idxTracksToRejectFromVtx);
+/*
+  for (int idx = 0; idx < aKaonPion->GetEntries(); ++idx)
+  {
+    StKaonPion const* kp = (StKaonPion*)aKaonPion->At(idx);
+    StPicoTrack const* kaon = picoDst->track(kp->kaonIdx());
+    StPicoTrack const* pion = picoDst->track(kp->pionIdx());
 
-  minuitVertex = testVertex;
-  /*
-     {
-     cout<<"runId = "<<mPicoD0Event->runId()<<"\teventId = "<<mPicoD0Event->eventId()<<"\ttrackNumber="<<nTracks<<"\trejection="<<idxTracksToRejectFromVtx.size()<<endl; 
-     cout<<"D0Tree= "<<d0Vertex<<endl;
-     cout<<"My result= "<<testVertex<<endl;
-     cout<<"function = "<<minuitVertex<<endl;
-     }
-     */
+    int charge=0;
+    if (!isGoodTrack(kaon) || !isGoodTrack(pion)) continue;
+    if (!isTpcPion(pion)) continue;
+    float mDmass_fill[20];
+    if((charge=isOptD0Pair(kp))!=0 && isKaon(kaon,&d0Vertex))
+    {
+      mDmass_fill[0]=kp->m();
+      mDmass_fill[1]=charge;
+      mDmass_fill[2]=mult;
+      mDmass_fill[3]=event->runId();
+      mDmass_fill[4]=event->eventId();
+      mDmass_fill[5]=kp->pt();
+      mDmass_fill[6]=kp->decayLength();
+      mDmass_fill[7]=kp->dcaDaughters();
+      mDmass_fill[8]=reweight;
+      mDmass_fill[9]=(kp->pointingAngle());
+      mDmass_fill[10]=kp->pionDca();
+      mDmass_fill[11]=kp->kaonDca();
+      mOrigin->Fill(mDmass_fill);
+    }
+  }
+*/
+//  minuitVertex= gb.primaryVertexRefit(picoDst,idxTracksToRejectFromVtx);
+
+
+  //float delta = (minuitVertex-d0Vertex).mag();
   for (unsigned short ik = 0; ik < idxPicoKaons.size(); ++ik)
   {
     StPicoTrack const * kaon = picoDst->track(idxPicoKaons[ik]);
@@ -303,127 +301,76 @@ Int_t StPicoD0AnaMaker::Make()
       StPicoTrack const * pion = picoDst->track(idxPicoPions[ip]);
 
 
-      StKaonPion originkp(kaon,pion,idxPicoKaons[ik],idxPicoPions[ip],pVtx,bField);
-      //      StKaonPion testkp(kaon,pion,idxPicoKaons[ik],idxPicoPions[ip],testVertex,bField);
-      StKaonPion minuitkp(kaon,pion,idxPicoKaons[ik],idxPicoPions[ip],minuitVertex,bField);
+      StKaonPion originkp(kaon,pion,idxPicoKaons[ik],idxPicoPions[ip],d0Vertex,bField);
+     // StKaonPion testkp(kaon,pion,idxPicoKaons[ik],idxPicoPions[ip],testVertex,bField);
+   //   StKaonPion minuitkp(kaon,pion,idxPicoKaons[ik],idxPicoPions[ip],minuitVertex,bField);
 
       if (!isGoodTrack(kaon) || !isGoodTrack(pion)) continue;
       if (!isTpcPion(pion)) continue;
       int charge=0;
-      float mDmass_fill[10];
+      float mDmass_fill[20];
+      
 
-      if((charge=isD0Pair(&originkp))!=0 && isKaon(kaon,&pVtx))
+      if((charge=isOptD0Pair(&originkp))!=0 && isKaon(kaon,&d0Vertex))
       {
         mDmass_fill[0]=originkp.m();
         mDmass_fill[1]=charge;
         mDmass_fill[2]=mult;
-        mDmass_fill[3]=kaon->gPt();
-        mDmass_fill[4]=kaon->gPt();
+        mDmass_fill[3]=event->runId();
+        mDmass_fill[4]=event->eventId();
         mDmass_fill[5]=originkp.pt();
         mDmass_fill[6]=originkp.decayLength();
         mDmass_fill[7]=originkp.dcaDaughters();
-
-
+        mDmass_fill[8]=reweight;
+        mDmass_fill[9]=(originkp.pointingAngle());
+        mDmass_fill[10]=originkp.pionDca();
+        mDmass_fill[11]=originkp.kaonDca();
         mOrigin->Fill(mDmass_fill);
+        cout<<"candidate found mass = "<<originkp.m()<<endl;
+//        if(delta<0.0001)
+ //         mTest1->Fill(mDmass_fill);
 
       }
-      /*
-         if((charge=isD0Pair(&testkp))!=0 && isKaon(kaon,&testVertex))
-         {
-         mDmass_fill[0]=testkp.m();
-         mDmass_fill[1]=charge;
-         mDmass_fill[2]=mult;
-         mDmass_fill[3]=kaon->gPt();
-         mDmass_fill[4]=kaon->gPt();
-         mDmass_fill[5]=testkp.pt();
-         mDmass_fill[6]=testkp.decayLength();
-         mDmass_fill[7]=testkp.dcaDaughters();
-         mTest->Fill(mDmass_fill);
-         }
-
-*/
-      if((charge=isD0Pair(&minuitkp))!=0 && isKaon(kaon,&minuitVertex))
+/*
+      if((charge=isOptD0Pair(&testkp))!=0 && isKaon(kaon,&testVertex))
+      //if((charge=isD0Pair(&testkp))!=0 && isKaon(kaon,&testVertex))
+      {
+        mDmass_fill[0]=testkp.m();
+        mDmass_fill[1]=charge;
+        mDmass_fill[2]=mult;
+        mDmass_fill[3]=event->runId();
+        mDmass_fill[4]=event->eventId();
+        mDmass_fill[5]=testkp.pt();
+        mDmass_fill[6]=testkp.decayLength();
+        mDmass_fill[7]=testkp.dcaDaughters();
+        mDmass_fill[8]=reweight;
+        mDmass_fill[9]=(testkp.pointingAngle());
+        mDmass_fill[10]=testkp.pionDca();
+        mDmass_fill[11]=testkp.kaonDca();
+      
+        mTest->Fill(mDmass_fill);
+      }
+      if((charge=isOptD0Pair(&minuitkp))!=0 && isKaon(kaon,&minuitVertex))
       {
         mDmass_fill[0]=minuitkp.m();
         mDmass_fill[1]=charge;
         mDmass_fill[2]=mult;
-        mDmass_fill[3]=kaon->gPt();
-        mDmass_fill[4]=kaon->gPt();
+        mDmass_fill[3]=event->runId();
+        mDmass_fill[4]=event->eventId();
         mDmass_fill[5]=minuitkp.pt();
         mDmass_fill[6]=minuitkp.decayLength();
         mDmass_fill[7]=minuitkp.dcaDaughters();
-        mDmass_fill[8] = minuitkp.pionDca();
-        mDmass_fill[9] = minuitkp.kaonDca();
+        mDmass_fill[8]=reweight;
+        mDmass_fill[9]=(minuitkp.pointingAngle());
+        mDmass_fill[10]=minuitkp.pionDca();
+        mDmass_fill[11]=minuitkp.kaonDca();
         mRefit->Fill(mDmass_fill);
+        if(delta<0.0001)
+          mTest->Fill(mDmass_fill);
       }
+*/
     }//Loop pair done
   }//loop kaon done
-  /*
-     for (int idx = 0; idx < aKaonPion->GetEntries(); ++idx)
-     {
-     StKaonPion const* kp = (StKaonPion*)aKaonPion->At(idx);
-     StPicoTrack const* kaon = picoDst->track(kp->kaonIdx());
-     StPicoTrack const* pion = picoDst->track(kp->pionIdx());
-     StKaonPion testkp(kaon,pion,kp->kaonIdx(),kp->pionIdx(),testVertex,bField);
-  //    StKaonPion d0kp(kaon,pion,kp->kaonIdx(),kp->pionIdx(),pVtx,bField);
-  StKaonPion minuitkp(kaon,pion,kp->kaonIdx(),kp->pionIdx(),minuitVertex,bField);
-
-  if (!isGoodTrack(kaon) || !isGoodTrack(pion)) continue;
-  if (!isTpcPion(pion)) continue;
-  int charge=0;
-  float mDmass_fill[8];
-
-  if((charge=isD0Pair(kp))!=0 && isKaon(kaon,&testVertex))
-  {
-  mDmass_fill[0]=kp->m();
-  mDmass_fill[1]=charge;
-  mDmass_fill[2]=mult;
-  mDmass_fill[3]=kaon->gPt();
-  mDmass_fill[4]=kaon->gPt();
-
-  mDmass_fill[5]=kp->pt();
-  mDmass_fill[6]=kp->decayLength();
-  mDmass_fill[7]=kp->dcaDaughters();
-  mTest->Fill(mDmass_fill);
-
-  }
-  if((charge=isD0Pair(&testkp))!=0 && isKaon(kaon,&testVertex))
-  {
-  mDmass_fill[0]=testkp.m();
-  mDmass_fill[1]=charge;
-  mDmass_fill[2]=mult;
-  mDmass_fill[3]=kaon->gPt();
-  mDmass_fill[4]=kaon->gPt();
-  mDmass_fill[5]=testkp.pt();
-  mDmass_fill[6]=testkp.decayLength();
-  mDmass_fill[7]=testkp.dcaDaughters();
-  mOrigin->Fill(mDmass_fill);
-  }
-
-  //      if((charge=isD0Pair(&d0kp))!=0 && isKaon(kaon,&d0Vertex))
-  //      {
-  //	mDmass_fill[0]=d0kp.m();
-  //	mDmass_fill[1]=charge;
-  //	mDmass_fill[2]=mult;
-  //        mRefit->Fill(mDmass_fill);
-  //      }
-  if((charge=isD0Pair(&minuitkp))!=0 && isKaon(kaon,&minuitVertex))
-  {
-  mDmass_fill[0]=minuitkp.m();
-  mDmass_fill[1]=charge;
-  mDmass_fill[2]=mult;
-  mDmass_fill[3]=kaon->gPt();
-  mDmass_fill[4]=kaon->gPt();
-  mDmass_fill[5]=minuitkp.pt();
-  mDmass_fill[6]=minuitkp.decayLength();
-  mDmass_fill[7]=minuitkp.dcaDaughters();
-  mRefit->Fill(mDmass_fill);
-  }
-
-  }
-  */
-  //StPicoKFVertexFitter gb;
-
   float refittuple_fill[20]; 
   refittuple_fill[0] = testVertex.x(); 
   refittuple_fill[1] = testVertex.y(); 
@@ -431,11 +378,12 @@ Int_t StPicoD0AnaMaker::Make()
   refittuple_fill[3] = minuitVertex.x();//d0Vertex.x(); 
   refittuple_fill[4] = minuitVertex.y();//d0Vertex.x(); 
   refittuple_fill[5] = minuitVertex.z();//d0Vertex.x(); 
-  refittuple_fill[6] = pVtx.x(); 
-  refittuple_fill[7] = pVtx.y(); 
-  double dtime = (double)(t2- t1) / CLOCKS_PER_SEC;
-  refittuple_fill[8] = pVtx.z(); 
+  refittuple_fill[6] = d0Vertex.x(); 
+  refittuple_fill[7] = d0Vertex.y(); 
+  refittuple_fill[8] = d0Vertex.z(); 
   refittuple_fill[9] = mult; 
+  refittuple_fill[10] = event->runId();
+  refittuple_fill[11] = event->eventId();
   mEventtuple->Fill(refittuple_fill);
   return kStOK;
 }
@@ -481,85 +429,53 @@ int StPicoD0AnaMaker::isD0Pair(StKaonPion const* const kp) const
 /*
 */
 
-int StPicoD0AnaMaker::primaryVertexRefit(StThreeVectorF *mRefitVertex, vector<int>& daughter) 
+int StPicoD0AnaMaker::isOptD0Pair(StKaonPion const* const kp) const
 {
 
-  picoDst = mPicoDstMaker->picoDst();
-  int nTracks = picoDst->numberOfTracks();
-  int N = 0;//nTracks - daughter.size();
-  for (int i=0; i < nTracks; i++) {
-    StPicoTrack *gTrack = (StPicoTrack*)picoDst->track(i);
-    if (! gTrack) continue;
-    Int_t kg = gTrack->id();
-
-    bool flagDdaughterCand = false;
-    for (vector<int>::size_type j=0; j < daughter.size(); j++) {
-      if (daughter[j] == kg) 
-      {
-        flagDdaughterCand = 1;
-      }
-    }
-    if (flagDdaughterCand == 1) continue;
-    N++;
-  }
-  KFParticle *particles[N];
-  //  KFParticle **particles = new KFParticle*[N];
-  //  StKFVertexMaker fitter;
-  Int_t NGoodGlobals = 0;
-  for (int i=0; i < nTracks; i++) {
-    StPicoTrack *gTrack = (StPicoTrack*)picoDst->track(i);
-    if (! gTrack) continue;
-    dcaG->set(gTrack->params(),gTrack->errMatrix());
-    if (! dcaG) continue;
-    Int_t kg = gTrack->id();
-
-    bool flagDdaughterCand = false;
-    for (vector<int>::size_type j=0; j < daughter.size(); j++) {
-      if (daughter[j] == kg) 
-      {
-        flagDdaughterCand = 1;
-      }
-    }
-    if (flagDdaughterCand == 1) continue;
-
-
-    // particles[NGoodGlobals] = fitter.AddTrackAt(dcaG,kg);
-    if (! dcaG) return 0;
-    Double_t xyzp[6], CovXyzp[21];
-    dcaG->GetXYZ(xyzp,CovXyzp);
-    static MTrack track;
-    track.SetParameters(xyzp);
-    track.SetCovarianceMatrix(CovXyzp);
-    track.SetNDF(1);
-    //    track.SetChi2(GlobalTracks_mChiSqXY[k]);
-    track.SetID(kg);
-    Int_t q   = 1;
-    Int_t pdg = 211;
-    if (dcaG->charge() < 0) {
-      q = -1;
-      pdg = -211;
-    } 
-    track.SetCharge(q);
-    particles[NGoodGlobals] = new KFParticle(track, pdg);
-    particles[NGoodGlobals]->SetID(kg);
-    //////////////////
-    NGoodGlobals++;
-  }
-  TArrayC Flag(N);
-  KFVertex aVertex;
-  aVertex.ConstructPrimaryVertex((const KFParticle **) particles, N,
-      (Bool_t*) Flag.GetArray(),TMath::Sqrt(StAnneling::Chi2Cut()/2));
-  //  delete [] particles;
-  for(int i=0;i<N;++i)
+  StPicoTrack const* kaon = picoDst->track(kp->kaonIdx());
+  StPicoTrack const* pion = picoDst->track(kp->pionIdx());
+  bool pairCuts = false;
+  if(kp->pt()<1)
   {
-    //    particles[i]->Clear();
-    delete particles[i];
+    pairCuts =  sin(kp->pointingAngle())*kp->decayLength() < 0.0062 &&
+      kp->pionDca() > 0.0109 && kp->kaonDca() > 0.0123 &&
+      kp->dcaDaughters() < 0.0082 && kp->decayLength()>0.0149;  
+  }
+  else if(kp->pt()<2)
+  {
+    pairCuts =  sin(kp->pointingAngle())*kp->decayLength() < 0.0047 &&
+      kp->pionDca() > 0.0108 && kp->kaonDca() > 0.0097 &&
+      kp->dcaDaughters() < 0.0070 && kp->decayLength()>0.0205;  
+  }
+  else if(kp->pt()<3)
+  {
+    pairCuts =  sin(kp->pointingAngle())*kp->decayLength() < 0.0040 &&
+      kp->pionDca() > 0.0100 && kp->kaonDca() > 0.0091 &&
+      kp->dcaDaughters() < 0.0056 && kp->decayLength()>0.0216;  
+  }
+  else if(kp->pt()<5)
+  {
+    pairCuts =  sin(kp->pointingAngle())*kp->decayLength() < 0.0041 &&
+      kp->pionDca() > 0.0074 && kp->kaonDca() > 0.0075 &&
+      kp->dcaDaughters() < 0.0065 && kp->decayLength()>0.0233;  
+  }
+  else 
+  {
+    pairCuts =  sin(kp->pointingAngle())*kp->decayLength() < 0.0042 &&
+      kp->pionDca() > 0.067 && kp->kaonDca() > 0.0053 &&
+      kp->dcaDaughters() < 0.0065 && kp->decayLength()>0.0282;  
   }
 
-  if(aVertex.GetX()==0) return 0;
-  mRefitVertex->set(aVertex.GetX(),aVertex.GetY(),aVertex.GetZ());
-  return 1;
+  int charge = kaon->charge() * pion->charge();
+    
+
+  if(pairCuts)
+    return charge;
+  else
+    return 0;
 }
+/*
+*/
 
 
 bool StPicoD0AnaMaker::isGoodEvent()
