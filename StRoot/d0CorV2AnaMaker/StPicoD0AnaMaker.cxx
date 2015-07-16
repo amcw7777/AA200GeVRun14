@@ -77,12 +77,15 @@ Int_t StPicoD0AnaMaker::Init()
   etaPhi_D = new TH2F("etaPhiD","",100,-3.1416,3.1416,100,-2,2);
   etaPhi_Hadron = new TH2F("etaPhiHadron","",100,-3.1416,3.1416,100,-2,2);
   etaPhi_Hadron_all = new TH2F("etaPhiHadronAll","",100,-3.1416,3.1416,100,-2,2);
-  likePair[0] = new TH3D("likePair010","",50,1.6,2.1,10,0,10,10000,-1,1);
-  likePair[1] = new TH3D("likePair015","",50,1.6,2.1,10,0,10,10000,-1,1);
-  likePair[2] = new TH3D("likePair020","",50,1.6,2.1,10,0,10,10000,-1,1);
-  unlikePair[0] = new TH3D("unlikePair010","",50,1.6,2.1,10,0,10,10000,-1,1);
-  unlikePair[1] = new TH3D("unlikePair015","",50,1.6,2.1,10,0,10,10000,-1,1);
-  unlikePair[2] = new TH3D("unlikePair020","",50,1.6,2.1,10,0,10,10000,-1,1);
+  likePair[0] = new TH3D("likePair000","",50,1.6,2.1,10,0,10,10000,-10,10);
+  likePair[1] = new TH3D("likePair005","",50,1.6,2.1,10,0,10,10000,-10,10);
+  likePair[2] = new TH3D("likePair020","",50,1.6,2.1,10,0,10,10000,-10,10);
+  unlikePair[0] = new TH3D("unlikePair000","",50,1.6,2.1,10,0,10,10000,-10,10);
+  unlikePair[1] = new TH3D("unlikePair005","",50,1.6,2.1,10,0,10,10000,-10,10);
+  unlikePair[2] = new TH3D("unlikePair020","",50,1.6,2.1,10,0,10,10000,-10,10);
+  dEtaDHadron = new TH1F("dEtaDHadron","",1000,0,10);
+  hEtaD = new TH1F("hEtaD","",1000,0,10);
+  hEtaHadron = new TH1F("hEtaHadron","",1000,0,10);
 
   mOutputFile->cd();
 
@@ -111,6 +114,9 @@ Int_t StPicoD0AnaMaker::Finish()
     likePair[i]->Write();
     unlikePair[i]->Write();
   }
+  dEtaDHadron->Write();
+  hEtaD->Write();
+  hEtaHadron->Write();
 
   mOutputFile->Close();
   delete mPrescales;
@@ -201,8 +207,8 @@ Int_t StPicoD0AnaMaker::Make()
       vector<float> hadronPhi3;
       int index1 = kp->kaonIdx();
       int index2 = kp->pionIdx();
-      getCorHadron(d0Eta,hadronPhi1,index1,index2,d0Phi,0.10);
-      getCorHadron(d0Eta,hadronPhi2,index1,index2,d0Phi,0.15);
+      getCorHadron(d0Eta,hadronPhi1,index1,index2,d0Phi,0.00);
+      getCorHadron(d0Eta,hadronPhi2,index1,index2,d0Phi,0.05);
       getCorHadron(d0Eta,hadronPhi3,index1,index2,d0Phi,0.20);
       etaPhi_D->Fill(d0Phi,d0Eta);
       int sumHadron1 = hadronPhi1.size();
@@ -210,25 +216,31 @@ Int_t StPicoD0AnaMaker::Make()
       {
         cout<<"============================================****************************"<<endl;
         if(charge==-1)
-          unlikePair[0]->Fill(kp->m(),kp->pt(),cos(2*(d0Phi-hadronPhi1[ih])),reweight);
+         // unlikePair[0]->Fill(kp->m(),kp->pt(),cos(2*(d0Phi-hadronPhi1[ih])),reweight);
+          unlikePair[0]->Fill(kp->m(),kp->pt(),(d0Phi-hadronPhi1[ih]),reweight);
         if(charge==1)
-          likePair[0]->Fill(kp->m(),kp->pt(),cos(2*(d0Phi-hadronPhi1[ih])),reweight);
+          //likePair[0]->Fill(kp->m(),kp->pt(),cos(2*(d0Phi-hadronPhi1[ih])),reweight);
+          likePair[0]->Fill(kp->m(),kp->pt(),(d0Phi-hadronPhi1[ih]),reweight);
       }
       int sumHadron2 = hadronPhi2.size();
       for(int ih=0; ih<sumHadron2; ih++)
       {
         if(charge==-1)
-          unlikePair[1]->Fill(kp->m(),kp->pt(),cos(2*(d0Phi-hadronPhi1[ih])),reweight);
+          //unlikePair[1]->Fill(kp->m(),kp->pt(),cos(2*(d0Phi-hadronPhi1[ih])),reweight);
+          unlikePair[1]->Fill(kp->m(),kp->pt(),((d0Phi-hadronPhi1[ih])),reweight);
         if(charge==1)
-          likePair[1]->Fill(kp->m(),kp->pt(),cos(2*(d0Phi-hadronPhi1[ih])),reweight);
+          //likePair[1]->Fill(kp->m(),kp->pt(),cos(2*(d0Phi-hadronPhi1[ih])),reweight);
+          likePair[1]->Fill(kp->m(),kp->pt(),((d0Phi-hadronPhi1[ih])),reweight);
       }
       int sumHadron3 = hadronPhi3.size();
       for(int ih=0; ih<sumHadron3; ih++)
       {
         if(charge==-1)
-          unlikePair[2]->Fill(kp->m(),kp->pt(),cos(2*(d0Phi-hadronPhi1[ih])),reweight);
+          //unlikePair[2]->Fill(kp->m(),kp->pt(),cos(2*(d0Phi-hadronPhi1[ih])),reweight);
+          unlikePair[2]->Fill(kp->m(),kp->pt(),((d0Phi-hadronPhi1[ih])),reweight);
         if(charge==1)
-          likePair[2]->Fill(kp->m(),kp->pt(),cos(2*(d0Phi-hadronPhi1[ih])),reweight);
+          //likePair[2]->Fill(kp->m(),kp->pt(),cos(2*(d0Phi-hadronPhi1[ih])),reweight);
+          likePair[2]->Fill(kp->m(),kp->pt(),((d0Phi-hadronPhi1[ih])),reweight);
       }
     }
 
@@ -401,6 +413,12 @@ bool StPicoD0AnaMaker::getCorHadron(float eta,vector<float> &hadronsPhi, int ind
     if(!isGoodHadron(hadron)) continue;
     float dEta = fabs(hadron->pMom().pseudoRapidity() - eta);
     float dPhi = (hadron->pMom().phi() - phi);
+    if(etaCut<0.001)
+    {
+      dEtaDHadron->Fill(dEta);
+      hEtaD->Fill(eta);
+      hEtaHadron->Fill(hadron->pMom().pseudoRapidity());
+    }
     //if(dPhi>3.1416) dPhi = 2*3.1416-dPhi;
     if(dEta< etaCut|| dEta > mycuts::corDetaMax)  continue;
     etaPhi->Fill(dPhi,dEta);

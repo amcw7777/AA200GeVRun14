@@ -105,6 +105,9 @@ class StPicoD0AnaMaker : public StMaker
     TNtuple *mEventTuple;
 		TNtuple *mDTuple;
 		TNtuple *mHadronTuple;
+    TH1F *dEtaDHadron;
+    TH1F *hEtaD;
+    TH1F *hEtaHadron;
 		TH2F *etaPhi;
 		TH2F *etaPhi_D;
 		TH2F *etaPhi_Hadron;
