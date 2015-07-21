@@ -131,6 +131,7 @@ class StPicoD0AnaMaker : public StMaker
      TH1D *mDmasstest_unlike;
      TH1D *mCostheta;
      TH1D *mdRkp;
+     TH2D *fitTracks;
 //
     
     // variables to do Minuit vertex fit
