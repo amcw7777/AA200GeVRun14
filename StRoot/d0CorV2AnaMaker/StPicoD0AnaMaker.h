@@ -71,6 +71,7 @@ class StPicoD0AnaMaker : public StMaker
 
     bool isGoodPair(StKaonPion const*) const;
     int isD0Pair(StKaonPion const*) const;
+    int isD0PairOld(StKaonPion const*) const;
     int D0Reco(StThreeVectorF *);
     bool isGoodEvent();
     bool  isGoodTrack(StPicoTrack const*) const;
@@ -79,7 +80,7 @@ class StPicoD0AnaMaker : public StMaker
     bool  isTpcKaon(StPicoTrack const*,StThreeVectorF const * pVtx) const;
     bool isTofKaon(StPicoTrack const* const, float beta) const;
     float getTofBeta(StPicoTrack const*,StThreeVectorF const * pVtx) const;
-    bool getCorHadron(float eta, vector<float> &hadronsPhi, int, int , float, float);
+    bool getCorHadron(float eta, vector<float> &hadronsPhi, const vector<unsigned int>, float, float);
     float sumCos(float phi, vector<float> &hadronsPhi);
     bool fixPhi(vector<float> &phi);
     bool getHadronCorV2();
@@ -109,11 +110,37 @@ class StPicoD0AnaMaker : public StMaker
     TH1F *dEtaDHadron;
     TH1F *hEtaD;
     TH1F *hEtaHadron;
+    TH1F *hPhiHadron;
+    TH1F *hPhiD;
+    TH1F *vtxz;
 		TH2F *etaPhi;
 		TH2F *etaPhi_D;
 		TH2F *etaPhi_Hadron;
 		TH2F *etaPhi_Hadron_all;
-    TProfile *profV2[6][5];
+    TProfile *profV2[8][5][3];//i.S or B; j.flatten; k. differetn etaGap
+    TH1D *hadronV2[5];
+    TH1D *hadronV2_sum[5];
+    TH1D *hadronV2_excl[5][9];
+    TH1D *hadronV2_excl_sum[5][9];
+    TH2D *fitPhi[6];
+    TH2D *massPt;
+    TH2D *massPtLike;
+    TH2D *massLike;
+    TH2D *massLike2;
+    TH2D *massUnlike;
+    TH2D *v2Weight[8][3];
+    TH2D *likeV2Mass[6][5];
+    TH2D *likeV2Mass2[6][5];
+    TH2D *unlikeV2Mass[6][5];
+    TNtuple *checkNew;
+    TNtuple *checkOld;
+
+  TH2D *checkPeak;
+    
+    double fitsigma[6];
+    double fitmean[6];
+    double mHadronV2[9];
+  double efficiency[4][6];
     ClassDef(StPicoD0AnaMaker, 1)
 };
 
